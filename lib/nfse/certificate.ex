@@ -125,7 +125,6 @@ defmodule Nfse.Certificate do
          {:ok, leaf, chain} <- split_leaf(certificates, key) do
       from_der(leaf, key, chain)
     else
-      {:error, %Error{}} = error -> error
       {:error, details} -> certificate_error(details)
     end
   end
@@ -175,28 +174,15 @@ defmodule Nfse.Certificate do
 
   # Um PKCS#12 é uma única SEQUENCE em DER, então o tamanho dele é conhecido de antemão.
   # Conferir aqui transforma um upload truncado em erro imediato, em vez de esperar o prazo
-  # inteiro para o openssl desistir de uma sequência que nunca termina.
-  defp validate_der(<<0x30, 0x80, _::binary>>), do: {:error, :invalid_file}
-
-  defp validate_der(<<0x30, length, rest::binary>>) when length < 0x80,
-    do: check_length(byte_size(rest), length)
-
-  defp validate_der(<<0x30, header, rest::binary>>) when header > 0x80 do
-    size_bytes = header - 0x80
-
-    case rest do
-      <<length::big-size(size_bytes)-unit(8), content::binary>> ->
-        check_length(byte_size(content), length)
-
-      _ ->
-        {:error, :invalid_file}
-    end
-  end
+  # inteiro para o openssl desistir de uma sequência que nunca termina. Com chave e certificado
+  # ele passa de 127 bytes, e por isso o tamanho vem sempre na forma longa.
+  defp validate_der(
+         <<0x30, header, length::big-size(header - 0x80)-unit(8), _content::binary-size(length)>>
+       )
+       when header > 0x80,
+       do: :ok
 
   defp validate_der(_bundle), do: {:error, :invalid_file}
-
-  defp check_length(size, size), do: :ok
-  defp check_length(_size, _length), do: {:error, :invalid_file}
 
   defp openssl(bundle, password, deadline) do
     case run(bundle, password, deadline, false) do
@@ -321,16 +307,15 @@ defmodule Nfse.Certificate do
     end
   end
 
-  # O OpenSSL 3 escreve a chave em PKCS#8 ("PRIVATE KEY"), os mais velhos em PKCS#1
-  # ("RSA PRIVATE KEY"). Desembrulhar o PKCS#8 aqui deixa quem vem depois assumir um formato só,
-  # porque :public_key.sign/3 pede o record RSAPrivateKey.
+  # O pkcs12 escreve a chave em PKCS#8 ("PRIVATE KEY") desde o OpenSSL 1.0.0, e o LibreSSL
+  # também. Desembrulhar aqui deixa quem vem depois assumir um formato só, porque
+  # :public_key.sign/3 pede o record RSAPrivateKey.
   defp private_key({:PrivateKeyInfo, _der, :not_encrypted} = entry) do
     entry
     |> :public_key.pem_entry_decode()
     |> rsa_key()
   end
 
-  defp private_key({:RSAPrivateKey, der, :not_encrypted}), do: {:RSAPrivateKey, der}
   defp private_key(_entry), do: nil
 
   # Um bag PKCS#8 também carrega chave EC ou Ed25519. O bundle é válido, só não serve para
@@ -406,21 +391,16 @@ defmodule Nfse.Certificate do
     with names when is_list(names) <- find_extension(tbs, @subject_alt_name_oid),
          {:otherName, {_tag, ^oid, value}} <-
            Enum.find(names, &match?({:otherName, {_tag, ^oid, _value}}, &1)) do
-      raw_value(value)
+      der_content(value)
     else
       _ -> ""
     end
   end
 
-  defp raw_value(value) when is_binary(value), do: der_content(value)
-  defp raw_value(value) when is_list(value), do: List.to_string(value)
-  defp raw_value(_value), do: ""
-
   # Sem tirar o cabeçalho, o byte de tamanho do DER pode ser um dígito ASCII e entrar no CPF.
+  # Os campos do DOC-ICP-04 têm menos de 128 bytes, então o tamanho vem sempre na forma curta;
+  # outro valor passa como veio.
   defp der_content(<<_tag, length, content::binary-size(length)>>) when length < 0x80, do: content
-
-  defp der_content(<<_tag, 0x81, length, content::binary-size(length)>>), do: content
-
   defp der_content(value), do: value
 
   defp find_extension(tbs, oid) do
@@ -440,8 +420,6 @@ defmodule Nfse.Certificate do
 
   defp to_datetime({:generalTime, value}),
     do: value |> IO.chardata_to_string() |> parse_datetime()
-
-  defp to_datetime(_value), do: :error
 
   # RFC 5280: ano de dois dígitos de 50 em diante é 19xx, abaixo disso 20xx.
   defp with_century(<<year::binary-2, _rest::binary>> = value) when year >= "50",
