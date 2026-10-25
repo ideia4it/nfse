@@ -26,7 +26,8 @@ defmodule Nfse.MixProject do
       description: "Cliente Elixir para a NFS-e Nacional.",
       package: package(),
       docs: docs(),
-      source_url: @source_url
+      source_url: @source_url,
+      test_coverage: test_coverage()
     ]
   end
 
@@ -61,6 +62,25 @@ defmodule Nfse.MixProject do
         "credo --strict",
         "test"
       ]
+    ]
+  end
+
+  # Os leiautes gerados só delegam ao Nfse.Schema.Runtime, que tem cobertura própria; o suporte
+  # dos testes e o gerador em dev/ não fazem parte do pacote.
+  defp test_coverage do
+    [
+      ignore_modules: [
+        ~r/^Nfse\.Schema\.V1_00\./,
+        ~r/^Nfse\.Schema\.V1_01\./,
+        ~r/^Nfse\.SchemaFixtures/,
+        Nfse.DpsFixtures,
+        Nfse.SefinStub,
+        Nfse.Xmllint,
+        Nfse.RestrictedEnvironment,
+        Mix.Tasks.Nfse.Gen,
+        ~r/^Nfse\.Gen\./
+      ],
+      summary: [threshold: 99]
     ]
   end
 
