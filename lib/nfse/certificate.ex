@@ -397,10 +397,13 @@ defmodule Nfse.Certificate do
   # O CNPJ não está no subject: a ICP-Brasil o põe num otherName do subjectAltName. As
   # autoridades divergem no tipo de string desse valor, então pegamos os bytes crus e deixamos
   # as regex acharem os dígitos, que ignoram o envelope DER.
+  #
+  # A tag do otherName não é casada porque o OTP 28 decodifica como :"INSTANCE OF" o que até o
+  # OTP 27 vinha como :AnotherName.
   defp other_name_digits(tbs, oid) do
     with names when is_list(names) <- find_extension(tbs, @subject_alt_name_oid),
-         {:otherName, {:AnotherName, ^oid, value}} <-
-           Enum.find(names, &match?({:otherName, {:AnotherName, ^oid, _}}, &1)) do
+         {:otherName, {_tag, ^oid, value}} <-
+           Enum.find(names, &match?({:otherName, {_tag, ^oid, _value}}, &1)) do
       raw_value(value)
     else
       _ -> ""
