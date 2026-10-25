@@ -9,8 +9,9 @@ defmodule Nfse do
   Emite a NFS-e a partir de uma DPS, de forma síncrona.
 
   Monta, valida e assina a DPS (`Nfse.DPS.build/2`) e a envia à Sefin uma única vez. Se a Sefin não
-  responder (`:timeout`, `:transport` ou `:server`), o resultado é incerto: o `Nfse.Error` traz o
-  `dps_id` para conferir com `dps_issued?/2` e `fetch_access_key/2` antes de reenviar.
+  responder (`:timeout`, `:transport` ou `:server`) ou responder 2xx com algo que não se lê
+  (`:unexpected` com `status`), o resultado é incerto: o `Nfse.Error` traz o `dps_id` para conferir
+  com `dps_issued?/2` e `fetch_access_key/2` antes de reenviar.
   """
   @spec issue(Nfse.Client.t(), Nfse.DPS.t() | map()) ::
           {:ok, Nfse.Issued.t()} | {:error, Nfse.Error.t()}
@@ -47,8 +48,9 @@ defmodule Nfse do
   Registra um evento da NFS-e, como a solicitação de análise fiscal ou a manifestação do tomador.
 
   Monta, valida e assina o pedido (`Nfse.PedidoEvento.build/2`) e o envia à Sefin uma única vez.
-  Se a Sefin não responder (`:timeout`, `:transport` ou `:server`), o resultado é incerto: confira
-  com `fetch_event/4` antes de reenviar.
+  Se a Sefin não responder (`:timeout`, `:transport` ou `:server`) ou responder 2xx com algo que
+  não se lê (`:unexpected` com `status`), o resultado é incerto: confira com `fetch_event/4` antes
+  de reenviar.
   """
   @spec register_event(Nfse.Client.t(), Nfse.PedidoEvento.t() | map()) ::
           {:ok, Nfse.Event.t()} | {:error, Nfse.Error.t()}

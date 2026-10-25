@@ -33,7 +33,7 @@ A Sefin recusa o cancelamento fora das regras do município (prazo e situação 
 
 ## Conferir um evento
 
-Como na emissão, o registro de um evento sai uma única vez. Num `:timeout` ou `:server` o resultado é incerto, e a conferência é `Nfse.fetch_event/4`, com o tipo do evento (seis dígitos) e o número de sequência:
+Como na emissão, o registro de um evento sai uma única vez. Num `:timeout`, `:transport` ou `:server`, ou num `:unexpected` com `status` 2xx (o evento foi registrado, mas a resposta não se leu, e `details.xml` traz o que veio), o resultado é incerto, e a conferência é `Nfse.fetch_event/4`, com o tipo do evento (seis dígitos) e o número de sequência:
 
 ```elixir
 case Nfse.fetch_event(client, access_key, "101101", 1) do

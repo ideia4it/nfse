@@ -8,9 +8,11 @@ defmodule Nfse.Sefin do
   se confere com `dps_issued?/2` e `fetch_access_key/2` antes de qualquer reenvio. Todo erro de
   `issue/2` posterior à montagem da DPS carrega o `dps_id`.
 
-  Uma resposta 201 cuja NFS-e não passa na leitura estrita volta como `:unexpected`, nunca como
-  `:validation`: a nota pode ter sido emitida, e `details` traz `access_key`, `xml` e o erro da
-  leitura em `reason`.
+  Uma resposta 2xx que não se consegue ler, na emissão, na consulta ou num evento, volta como
+  `:unexpected` com o `status` da resposta, nunca como `:validation`: o documento existe na Sefin.
+  `details` é sempre `%{access_key: ..., xml: ..., reason: ...}`, com `nil` no que não se chegou a
+  ler e, em `reason`, o `Nfse.Error` da etapa que falhou. Numa escrita, esse erro é incerto como
+  um `:timeout`, e o `dps_id` também vem nele.
 
   A documentação da Sefin descreve a resposta de sucesso em camelCase, mas os erros chegam em
   PascalCase; os campos de sucesso são lidos nas duas grafias.
@@ -25,9 +27,9 @@ defmodule Nfse.Sefin do
 
   `register_event/2` envia o pedido assinado a `POST /nfse/{chave}/eventos` e `fetch_event/4` lê um
   evento em `GET /nfse/{chave}/eventos/{tipo}/{sequência}`. Como na emissão, a escrita sai uma única
-  vez: um `:timeout` ou `:server` deixa o resultado incerto, e o evento se confere com
-  `fetch_event/4` antes de qualquer reenvio. A recusa de um evento chega com um único objeto
-  `erro`, que o cliente já lê.
+  vez: um `:timeout`, um `:server` ou um 2xx ilegível deixa o resultado incerto, e o evento se
+  confere com `fetch_event/4` antes de qualquer reenvio. A recusa de um evento chega com um único
+  objeto `erro`, que o cliente já lê.
 
   ## O que não está confirmado
 
@@ -89,7 +91,7 @@ defmodule Nfse.Sefin do
   def fetch(%Client{} = client, access_key) do
     with {:ok, response} <-
            Client.request(client, :sefin, :get, "/nfse/" <> Client.path_segment(access_key)),
-         {:ok, xml, nfse} <- read_nfse(response.body) do
+         {:ok, xml, nfse} <- read_document(response, {:ok, access_key}, :nfse) do
       {:ok, %Document{access_key: access_key, nfse: nfse, xml: xml}}
     end
   end
@@ -194,13 +196,13 @@ defmodule Nfse.Sefin do
     |> put_dps_id(dps_id)
   end
 
-  defp read_issued({:ok, %{body: body}}, dps_id) do
-    with {:ok, access_key} <- required(body, "chaveAcesso"),
-         {:ok, xml} <- nfse_xml(body),
-         {:ok, nfse} <- decode_issued(xml, access_key) do
+  defp read_issued({:ok, %{body: body} = response}, dps_id) do
+    access_key_read = required(body, "chaveAcesso")
+
+    with {:ok, xml, nfse} <- read_document(response, access_key_read, :nfse) do
       {:ok,
        %Issued{
-         access_key: access_key,
+         access_key: read_value(access_key_read),
          dps_id: dps_id,
          nfse: nfse,
          xml: xml,
@@ -212,15 +214,37 @@ defmodule Nfse.Sefin do
 
   defp read_issued({:error, _error} = failure, _dps_id), do: failure
 
-  defp read_event({:ok, %{body: body}}, access_key) do
-    with {:ok, packed} <- required(body, "eventoXmlGZipB64"),
-         {:ok, xml} <- Codec.unpack(packed),
-         {:ok, evento} <- decode_evento(xml) do
+  defp read_event({:ok, response}, access_key) do
+    with {:ok, xml, evento} <- read_document(response, {:ok, access_key}, :evento) do
       {:ok, %Event{access_key: access_key, evento: evento, xml: xml}}
     end
   end
 
   defp read_event({:error, _error} = failure, _access_key), do: failure
+
+  # Depois de um 2xx o documento já existe na Sefin: o que não se lê é problema da resposta, nunca
+  # dos dados de quem enviou, e a chave e o XML já lidos precisam chegar a quem vai guardá-los.
+  defp read_document(%{status: status, body: body}, access_key_read, root) do
+    xml_read = with {:ok, packed} <- required(body, packed_field(root)), do: Codec.unpack(packed)
+
+    with {:ok, _access_key} <- access_key_read,
+         {:ok, xml} <- xml_read,
+         {:ok, document} <- decode_root(xml, root) do
+      {:ok, xml, document}
+    else
+      {:error, %Error{} = reason} ->
+        known = %{access_key: read_value(access_key_read), xml: read_value(xml_read)}
+
+        {:error,
+         %Error{kind: :unexpected, status: status, details: Map.put(known, :reason, reason)}}
+    end
+  end
+
+  defp packed_field(:nfse), do: "nfseXmlGZipB64"
+  defp packed_field(:evento), do: "eventoXmlGZipB64"
+
+  defp read_value({:ok, value}), do: value
+  defp read_value({:error, _reason}), do: nil
 
   defp event_reference_errors(access_key, event_type, sequence) do
     for {path, false, error} <- [
@@ -237,32 +261,6 @@ defmodule Nfse.Sefin do
   defp digits?(_value, _count), do: false
 
   defp default_ver_aplic, do: "nfse-" <> to_string(Application.spec(:nfse, :vsn))
-
-  defp read_nfse(body) do
-    with {:ok, xml} <- nfse_xml(body),
-         {:ok, nfse} <- decode_nfse(xml) do
-      {:ok, xml, nfse}
-    end
-  end
-
-  defp nfse_xml(body) do
-    with {:ok, packed} <- required(body, "nfseXmlGZipB64") do
-      Codec.unpack(packed)
-    end
-  end
-
-  # Num 201 a nota já existe: um XML que não passa na leitura estrita é problema da resposta, nunca
-  # dos dados de quem emitiu, e a chave e o XML precisam chegar a quem vai guardá-los.
-  defp decode_issued(xml, access_key) do
-    case decode_nfse(xml) do
-      {:ok, nfse} ->
-        {:ok, nfse}
-
-      {:error, reason} ->
-        {:error,
-         %Error{kind: :unexpected, details: %{access_key: access_key, xml: xml, reason: reason}}}
-    end
-  end
 
   defp put_dps_id({:error, %Error{} = error}, dps_id), do: {:error, %{error | dps_id: dps_id}}
   defp put_dps_id(success, _dps_id), do: success

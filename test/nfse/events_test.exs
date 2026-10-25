@@ -135,7 +135,24 @@ defmodule Nfse.EventsTest do
       conn |> Plug.Conn.put_status(201) |> Req.Test.json(%{})
     end)
 
-    assert {:error, %Error{kind: :unexpected}} =
+    assert {:error, %Error{kind: :unexpected, status: 201, details: details}} =
              Nfse.cancel(client(context), @key, c_motivo: 1, x_motivo: @reason)
+
+    assert %{access_key: @key, xml: nil, reason: %Error{details: {:missing_field, _field}}} =
+             details
+  end
+
+  test "hands back the XML of a registered event that breaks the schema", context do
+    xml = String.replace(SefinStub.event_xml(@key), "<ambGer>2</ambGer>", "<ambGer>9</ambGer>")
+
+    Req.Test.stub(context.test, fn conn ->
+      conn |> Plug.Conn.put_status(201) |> Req.Test.json(%{"eventoXmlGZipB64" => Codec.pack(xml)})
+    end)
+
+    assert {:error, %Error{kind: :unexpected, status: 201, details: details}} =
+             Nfse.cancel(client(context), @key, c_motivo: 1, x_motivo: @reason)
+
+    assert %{access_key: @key, xml: ^xml, reason: %Error{kind: :validation} = reason} = details
+    assert [%{path: "inf_evento.amb_ger"}] = reason.details
   end
 end

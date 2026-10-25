@@ -11,6 +11,8 @@ Uma escrita (`Nfse.issue/2`, `Nfse.issue_by_court_order/2`, `Nfse.register_event
 
 Timeout, conexão fechada e qualquer resposta HTTP, 5xx inclusive, nunca são repetidos. Voltam como `%Nfse.Error{kind: :timeout | :transport | :server}`, com o `dps_id` da DPS que ficou incerta.
 
+Um 2xx que não se consegue ler também é incerto: a Sefin aceitou a escrita, mas a chave ou o XML não chegaram inteiros. Esse erro volta como `%Nfse.Error{kind: :unexpected}` com o `status` 2xx da resposta, e `details` traz `access_key`, `xml` (o que deles já se leu, ou `nil`) e o motivo em `reason`. Guarde o que veio antes de conferir.
+
 As leituras (`fetch/2`, `dps_issued?/2`, `fetch_access_key/2`, `distribution/3` e as consultas de parâmetros) repetem as falhas transitórias (408, 429, 500, 502, 503, 504, timeout, conexão recusada ou fechada) e o `:nxdomain`.
 
 ## O laço de conferência
@@ -19,17 +21,15 @@ Depois de um erro incerto, pergunte à Sefin se ela conhece a DPS antes de qualq
 
 ```elixir
 defmodule MeuApp.Emissao do
-  @uncertain [:timeout, :transport, :server]
-
   def issue_confirming(client, dps) do
-    case Nfse.issue(client, dps) do
-      {:error, %Nfse.Error{kind: kind, dps_id: dps_id}} when kind in @uncertain ->
-        confirm(client, dps_id)
-
-      other ->
-        other
+    with {:error, %Nfse.Error{} = error} <- Nfse.issue(client, dps) do
+      if uncertain?(error), do: confirm(client, error.dps_id), else: {:error, error}
     end
   end
+
+  defp uncertain?(%Nfse.Error{kind: kind}) when kind in [:timeout, :transport, :server], do: true
+  defp uncertain?(%Nfse.Error{kind: :unexpected, status: status}) when status in 200..299, do: true
+  defp uncertain?(%Nfse.Error{}), do: false
 
   defp confirm(client, dps_id, attempts_left \\ 5, wait_ms \\ 3_000) do
     case Nfse.dps_issued?(client, dps_id) do
@@ -70,4 +70,4 @@ Se `dps_issued?/2` volta com `{:error, _}`, o resultado continua incerto. Guarde
 
 ## Separe o que é incerto do que é recusa
 
-Um `:rejected` (400) é uma resposta completa da Sefin: a nota não foi emitida e a mensagem diz por quê. Só `:timeout`, `:transport` e `:server` pedem conferência, e é por isso que `Nfse.Error` só mostra "Confira a DPS ... antes de reenviar." nesses três.
+Um `:rejected` (400) é uma resposta completa da Sefin: a nota não foi emitida e a mensagem diz por quê. Só `:timeout`, `:transport`, `:server` e o `:unexpected` com `status` 2xx pedem conferência, e é por isso que `Nfse.Error` só mostra "Confira a DPS ... antes de reenviar." nesses casos.

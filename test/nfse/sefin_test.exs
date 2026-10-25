@@ -98,13 +98,36 @@ defmodule Nfse.SefinTest do
     assert calls.() == 1
   end
 
-  test "keeps the dps_id when the success answer cannot be read", context do
+  test "keeps the access key and the status when the issued XML cannot be unpacked", context do
+    key = SefinStub.access_key()
+
     Req.Test.stub(context.test, fn conn ->
-      conn |> Plug.Conn.put_status(201) |> Req.Test.json(%{"chaveAcesso" => "x"})
+      conn
+      |> Plug.Conn.put_status(201)
+      |> Req.Test.json(%{"chaveAcesso" => key, "nfseXmlGZipB64" => "não é base64"})
     end)
 
-    assert {:error, %Error{kind: :unexpected, dps_id: @dps_id}} =
+    assert {:error, %Error{kind: :unexpected, status: 201, dps_id: @dps_id} = error} =
              Nfse.issue(client(context), dps())
+
+    assert %{access_key: ^key, xml: nil, reason: %Error{details: :invalid_envelope}} =
+             error.details
+
+    assert Exception.message(error) =~ "Confira a DPS #{@dps_id} antes de reenviar."
+  end
+
+  test "keeps the XML and the status when the issued answer has no access key", context do
+    xml = SefinStub.fixture_xml("1.01")
+
+    Req.Test.stub(context.test, fn conn ->
+      conn |> Plug.Conn.put_status(201) |> Req.Test.json(%{"nfseXmlGZipB64" => Codec.pack(xml)})
+    end)
+
+    assert {:error, %Error{kind: :unexpected, status: 201, dps_id: @dps_id, details: details}} =
+             Nfse.issue(client(context), dps())
+
+    assert %{access_key: nil, xml: ^xml, reason: %Error{details: {:missing_field, "chaveAcesso"}}} =
+             details
   end
 
   test "hands back the key and the XML of an issued invoice that breaks the schema", context do
@@ -121,7 +144,7 @@ defmodule Nfse.SefinTest do
       |> Req.Test.json(%{"chaveAcesso" => key, "nfseXmlGZipB64" => Codec.pack(xml)})
     end)
 
-    assert {:error, %Error{kind: :unexpected, dps_id: @dps_id, details: details}} =
+    assert {:error, %Error{kind: :unexpected, status: 201, dps_id: @dps_id, details: details}} =
              Nfse.issue(client(context), dps())
 
     assert %{access_key: ^key, xml: ^xml, reason: %Error{kind: :validation} = reason} = details
@@ -171,6 +194,24 @@ defmodule Nfse.SefinTest do
 
     assert {:ok, %Document{access_key: ^key, xml: ^xml, nfse: %Nfse.Schema.V1_00.TCNFSe{}}} =
              Nfse.fetch(client(context), key)
+  end
+
+  test "hands back the XML of a fetched invoice that breaks the schema", context do
+    key = SefinStub.access_key()
+
+    xml =
+      "1.01"
+      |> SefinStub.fixture_xml()
+      |> String.replace("<nDFSe>42</nDFSe>", "<nDFSe>0</nDFSe>")
+
+    Req.Test.stub(context.test, fn conn ->
+      Req.Test.json(conn, %{"chaveAcesso" => key, "nfseXmlGZipB64" => Codec.pack(xml)})
+    end)
+
+    assert {:error, %Error{kind: :unexpected, status: 200, details: details}} =
+             Nfse.fetch(client(context), key)
+
+    assert %{access_key: ^key, xml: ^xml, reason: %Error{kind: :validation}} = details
   end
 
   test "refuses an NFS-e of an unsupported version or broken XML" do

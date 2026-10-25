@@ -29,8 +29,16 @@ defmodule Nfse.ErrorTest do
       assert Exception.message(%Nfse.Error{kind: kind, dps_id: dps_id}) =~ "Confira"
     end
 
-    message = Exception.message(%Nfse.Error{kind: :rejected, dps_id: dps_id})
-    assert message =~ dps_id
-    refute message =~ "Confira"
+    assert Exception.message(%Nfse.Error{kind: :unexpected, status: 201, dps_id: dps_id}) =~
+             "Confira"
+
+    for error <- [
+          %Nfse.Error{kind: :rejected, status: 400, dps_id: dps_id},
+          %Nfse.Error{kind: :unexpected, dps_id: dps_id}
+        ] do
+      message = Exception.message(error)
+      assert message =~ dps_id
+      refute message =~ "Confira"
+    end
   end
 end

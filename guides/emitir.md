@@ -83,16 +83,18 @@ Uma chave desconhecida num mapa aninhado nunca é descartada em silêncio. Texto
 | `:rejected` | 400, regra de negócio. `messages` traz o código (`E....`) e a descrição | corrigir o dado e emitir de novo |
 | `:forbidden` | 403, certificado ou ator sem acesso | conferir o certificado e o CNPJ |
 | `:timeout`, `:transport`, `:server` | sem resposta ou 5xx; **a nota pode ter sido emitida** | conferir, sem reenviar: [Conferir após timeout](conferir-apos-timeout.md) |
-| `:unexpected` | a resposta não pôde ser lida | ver abaixo |
+| `:unexpected` | a resposta não pôde ser lida; com `status` 2xx, **a nota foi emitida** | guardar `details` e conferir: ver abaixo |
 
 Todo erro de `Nfse.issue/2` posterior à montagem da DPS traz o `dps_id`.
 
-Uma resposta 201 cujo XML não passa na leitura estrita volta como `:unexpected`, nunca como `:validation`, porque a nota existe. Nesse caso `details` traz `access_key`, `xml` e o motivo em `reason`; guarde a chave e o XML antes de investigar.
+Uma resposta 201 que não se consegue ler (sem `chaveAcesso`, com o XML corrompido ou com um XML que não passa na leitura estrita) volta como `:unexpected` com `status: 201`, nunca como `:validation`, porque a nota existe. Nesse caso `details` traz `access_key`, `xml` (o que deles já se leu, ou `nil`) e o motivo em `reason`; guarde a chave e o XML antes de investigar, e confira como em [Conferir após timeout](conferir-apos-timeout.md) o que faltar.
 
 ```elixir
-{:error, %Nfse.Error{kind: :unexpected, details: %{access_key: access_key, xml: xml}}} =
+{:error, %Nfse.Error{kind: :unexpected, status: 201, details: %{access_key: access_key, xml: xml}}} =
   Nfse.issue(client, dps)
 ```
+
+`Nfse.fetch/2` segue a mesma regra: uma nota que chega num 200 e não se lê volta como `:unexpected`, com o XML em `details.xml`.
 
 ## Consultar uma nota
 
