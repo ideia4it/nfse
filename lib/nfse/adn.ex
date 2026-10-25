@@ -44,7 +44,7 @@ defmodule Nfse.Adn do
   @doc false
   @spec distribution(Client.t(), non_neg_integer(), keyword()) ::
           {:ok, Distribution.t()} | {:error, Error.t()}
-  def distribution(%Client{} = client, nsu, opts \\ []) when is_integer(nsu) and nsu >= 0 do
+  def distribution(%Client{} = client, nsu, opts) when is_integer(nsu) and nsu >= 0 do
     params = [lote: true] ++ cnpj_param(opts[:cnpj_consulta])
 
     client
@@ -56,7 +56,7 @@ defmodule Nfse.Adn do
   @doc false
   @spec stream_distribution(Client.t(), non_neg_integer(), keyword()) ::
           Enumerable.t(DistributedDocument.t())
-  def stream_distribution(%Client{} = client, nsu, opts \\ []) do
+  def stream_distribution(%Client{} = client, nsu, opts) do
     Stream.resource(
       fn -> nsu end,
       &next_batch(client, &1, opts),
@@ -80,8 +80,6 @@ defmodule Nfse.Adn do
 
   defp cnpj_param(nil), do: []
   defp cnpj_param(cnpj), do: [cnpjConsulta: cnpj]
-
-  defp next_batch(_client, :done, _opts), do: {:halt, :done}
 
   defp next_batch(client, nsu, opts) do
     case distribution(client, nsu, opts) do
@@ -191,22 +189,17 @@ defmodule Nfse.Adn do
   defp decode(:nfse, xml), do: Sefin.decode_nfse(xml)
   defp decode(:evento, xml), do: Sefin.decode_evento(xml)
 
+  # O DateTime só responde :missing_offset depois de validar a data e a hora, então o
+  # NaiveDateTime lê o mesmo texto sem falhar.
   defp parse_datetime(value) when is_binary(value) do
     case DateTime.from_iso8601(value) do
       {:ok, datetime, _offset} -> datetime
-      {:error, :missing_offset} -> naive_datetime(value)
+      {:error, :missing_offset} -> NaiveDateTime.from_iso8601!(value)
       {:error, _invalid} -> nil
     end
   end
 
   defp parse_datetime(_missing), do: nil
-
-  defp naive_datetime(value) do
-    case NaiveDateTime.from_iso8601(value) do
-      {:ok, naive} -> naive
-      {:error, _invalid} -> nil
-    end
-  end
 
   defp messages(body) when is_map(body), do: Client.messages(body)
   defp messages(_body), do: []
