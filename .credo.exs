@@ -23,6 +23,7 @@
         #
         included: [
           "lib/",
+          "dev/",
           "src/",
           "test/",
           "web/",
@@ -100,7 +101,8 @@
           {Credo.Check.Readability.MaxLineLength, [priority: :low, max_length: 120]},
           {Credo.Check.Readability.ModuleAttributeNames, []},
           {Credo.Check.Readability.ModuleDoc, false},
-          {Credo.Check.Readability.ModuleNames, []},
+          # O namespace de cada versão do leiaute, como V1_01, é a versão do XSD.
+          {Credo.Check.Readability.ModuleNames, [ignore: [~r/^Nfse\.Schema\.V\d+_\d+(\.|$)/]]},
           {Credo.Check.Readability.ParenthesesInCondition, []},
           {Credo.Check.Readability.ParenthesesOnZeroArityDefs, []},
           {Credo.Check.Readability.PipeIntoAnonymousFunctions, []},

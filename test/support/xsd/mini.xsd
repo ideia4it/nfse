@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema"
+           xmlns:ds="http://www.w3.org/2000/09/xmldsig#"
+           targetNamespace="http://www.sped.fazenda.gov.br/nfse"
+           xmlns="http://www.sped.fazenda.gov.br/nfse"
+           elementFormDefault="qualified">
+  <xs:import namespace="http://www.w3.org/2000/09/xmldsig#" schemaLocation="xmldsig-core-schema.xsd"/>
+  <xs:element name="Pessoa" type="TCPessoa"/>
+  <xs:complexType name="TCPessoa">
+    <xs:sequence>
+      <xs:choice>
+        <xs:element name="CNPJ" type="TSCNPJ">
+          <xs:annotation>
+            <xs:documentation>
+              Número do CNPJ do
+              prestador.
+            </xs:documentation>
+          </xs:annotation>
+        </xs:element>
+        <xs:element name="CPF" type="TSCPF">
+          <xs:annotation>
+            <xs:documentation>Número do CPF do prestador.</xs:documentation>
+          </xs:annotation>
+        </xs:element>
+      </xs:choice>
+      <xs:element name="xNome" type="TSNome">
+        <xs:annotation>
+          <xs:documentation>Nome ou razão social.</xs:documentation>
+        </xs:annotation>
+      </xs:element>
+      <xs:element name="end" type="TSNome" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="tipo">
+        <xs:annotation>
+          <xs:documentation>Tipo fixo.</xs:documentation>
+        </xs:annotation>
+        <xs:simpleType>
+          <xs:restriction base="xs:string">
+            <xs:whiteSpace value="preserve"/>
+            <xs:enumeration value="Pessoa"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:element>
+      <xs:element name="itens">
+        <xs:complexType>
+          <xs:sequence>
+            <xs:element name="item" type="TSNome" maxOccurs="99"/>
+          </xs:sequence>
+        </xs:complexType>
+      </xs:element>
+      <xs:element ref="ds:Signature" minOccurs="0"/>
+    </xs:sequence>
+    <xs:attribute name="Id" type="TSNome" use="required"/>
+  </xs:complexType>
+  <xs:simpleType name="TSNome">
+    <xs:annotation>
+      <xs:documentation>Nome livre.</xs:documentation>
+    </xs:annotation>
+    <xs:restriction base="xs:string">
+      <xs:minLength value="1"/>
+      <xs:maxLength value="150"/>
+      <xs:pattern value="[!-ÿ]{1,150}"/>
+      <xs:whiteSpace value="preserve"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="TSCNPJ">
+    <xs:restriction base="xs:string">
+      <xs:length value="14"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:simpleType name="TSCPF">
+    <xs:restriction base="xs:string">
+      <xs:length value="11"/>
+    </xs:restriction>
+  </xs:simpleType>
+</xs:schema>

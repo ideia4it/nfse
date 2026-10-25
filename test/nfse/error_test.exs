@@ -21,4 +21,24 @@ defmodule Nfse.ErrorTest do
     error = %Nfse.Error{kind: :timeout, dps_id: "DPS" <> String.duplicate("1", 42)}
     assert Exception.message(error) =~ error.dps_id
   end
+
+  test "only suggests conferring the DPS when the write outcome is uncertain" do
+    dps_id = "DPS" <> String.duplicate("1", 42)
+
+    for kind <- [:timeout, :transport, :server] do
+      assert Exception.message(%Nfse.Error{kind: kind, dps_id: dps_id}) =~ "Confira"
+    end
+
+    assert Exception.message(%Nfse.Error{kind: :unexpected, status: 201, dps_id: dps_id}) =~
+             "Confira"
+
+    for error <- [
+          %Nfse.Error{kind: :rejected, status: 400, dps_id: dps_id},
+          %Nfse.Error{kind: :unexpected, dps_id: dps_id}
+        ] do
+      message = Exception.message(error)
+      assert message =~ dps_id
+      refute message =~ "Confira"
+    end
+  end
 end

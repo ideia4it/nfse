@@ -1,0 +1,442 @@
+defmodule Nfse.ClientTest do
+  use ExUnit.Case, async: true
+
+  alias Nfse.Certificate
+  alias Nfse.Client
+  alias Nfse.Error
+
+  @fixtures Path.expand("../fixtures/certificates", __DIR__)
+  @password "senha-de-teste"
+
+  defp certificate(name) do
+    {:ok, certificate} = Certificate.from_pfx(File.read!(Path.join(@fixtures, name)), @password)
+    certificate
+  end
+
+  defp client(stub_name, opts \\ []) do
+    {:ok, client} =
+      Client.new(
+        certificate: certificate("modern.pfx"),
+        environment: Keyword.get(opts, :environment, :restricted),
+        req_options: [plug: {Req.Test, stub_name}] ++ Keyword.get(opts, :req_options, [])
+      )
+
+    client
+  end
+
+  defp count_calls do
+    counter = :counters.new(1, [])
+    {counter, fn -> :counters.add(counter, 1, 1) end}
+  end
+
+  test "refuses an expired certificate before any request" do
+    assert {:error, %Error{kind: :certificate, details: :expired}} =
+             Client.new(certificate: certificate("expired.pfx"), environment: :production)
+  end
+
+  test "refuses an unknown environment or a missing option instead of failing later" do
+    certificate = certificate("modern.pfx")
+
+    assert {:error,
+            %Error{kind: :validation, details: [%{path: "environment", error: :inclusion}]}} =
+             Client.new(certificate: certificate, environment: :producao)
+
+    assert {:error, %Error{kind: :validation, details: details}} = Client.new([])
+
+    assert details == [
+             %{path: "certificate", error: :required},
+             %{path: "environment", error: :required}
+           ]
+  end
+
+  test "refuses a certificate without clientAuth before any request" do
+    assert {:error, %Error{kind: :certificate, details: :missing_client_auth}} =
+             Client.new(certificate: certificate("no_client_auth.pfx"), environment: :production)
+  end
+
+  test "never shows the private key or the certificate when inspected" do
+    certificate = certificate("modern.pfx")
+    {:ok, client} = Client.new(certificate: certificate, environment: :production)
+    {:RSAPrivateKey, key_der} = certificate.key
+
+    for subject <- [certificate, client], text = inspect(subject, limit: :infinity) do
+      refute text =~ "RSAPrivateKey"
+      refute text =~ inspect(key_der, limit: :infinity)
+      refute text =~ inspect(certificate.certificate, limit: :infinity)
+      refute text =~ Base.encode64(certificate.certificate)
+    end
+  end
+
+  test "builds a client with defaults and maps the environment to tpAmb" do
+    assert {:ok, %Client{receive_timeout: 60_000, req_options: []} = production} =
+             Client.new(certificate: certificate("modern.pfx"), environment: :production)
+
+    assert Client.tp_amb(production) == "1"
+    assert Client.tp_amb(%{production | environment: :restricted}) == "2"
+  end
+
+  test "points each environment at its own hosts" do
+    stub = :hosts
+    test_pid = self()
+
+    Req.Test.stub(stub, fn conn ->
+      send(test_pid, {:called, conn.host, conn.request_path})
+      Req.Test.json(conn, %{})
+    end)
+
+    assert {:ok, %{status: 200}} =
+             Client.request(client(stub, environment: :restricted), :sefin, :get, "/nfse/1")
+
+    assert_received {:called, "sefin.producaorestrita.nfse.gov.br", "/API/SefinNacional/nfse/1"}
+
+    assert {:ok, _} = Client.request(client(stub, environment: :production), :sefin, :get, "/x")
+    assert_received {:called, "sefin.nfse.gov.br", "/SefinNacional/x"}
+
+    assert {:ok, _} = Client.request(client(stub, environment: :production), :adn, :get, "/x")
+    assert_received {:called, "adn.nfse.gov.br", "/x"}
+
+    assert {:ok, _} = Client.request(client(stub, environment: :restricted), :adn, :get, "/x")
+    assert_received {:called, "adn.producaorestrita.nfse.gov.br", "/x"}
+  end
+
+  test "sends json and params to the service" do
+    stub = :json_and_params
+    test_pid = self()
+
+    Req.Test.stub(stub, fn conn ->
+      {:ok, body, conn} = Plug.Conn.read_body(conn)
+      send(test_pid, {:called, conn.method, conn.query_string, Jason.decode!(body)})
+      conn |> Plug.Conn.put_status(201) |> Req.Test.json(%{})
+    end)
+
+    assert {:ok, %{status: 201}} =
+             Client.request(client(stub), :sefin, :post, "/nfse",
+               json: %{"dpsXmlGZipB64" => "abc"},
+               params: [lote: 1]
+             )
+
+    assert_received {:called, "POST", "lote=1", %{"dpsXmlGZipB64" => "abc"}}
+  end
+
+  test "sends a write once even when the server answers 503" do
+    stub = :write_once
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub, fn conn ->
+      count.()
+      Plug.Conn.send_resp(conn, 503, "")
+    end)
+
+    assert {:error, %Error{kind: :server, status: 503}} =
+             Client.request(client(stub), :sefin, :post, "/nfse", json: %{})
+
+    assert :counters.get(counter, 1) == 1
+  end
+
+  defp transport_failures_then(reason, status) do
+    {counter, count} = count_calls()
+
+    stub = fn conn ->
+      count.()
+
+      if :counters.get(counter, 1) > 1 do
+        conn |> Plug.Conn.put_status(status) |> Req.Test.json(%{})
+      else
+        Req.Test.transport_error(conn, reason)
+      end
+    end
+
+    {counter, stub}
+  end
+
+  defp always_failing(reason) do
+    {counter, count} = count_calls()
+
+    stub = fn conn ->
+      count.()
+      Req.Test.transport_error(conn, reason)
+    end
+
+    {counter, stub}
+  end
+
+  defp fast_client(stub_name, extra_req_options \\ []) do
+    client(stub_name, req_options: [retry_delay: 0, retry_log_level: false] ++ extra_req_options)
+  end
+
+  # O lugar onde Req.Test.transport_error/2 deixa a falha, usado para uma que não é de transporte.
+  defp http_error(conn, protocol, reason) do
+    exception = Req.HTTPError.exception(protocol: protocol, reason: reason)
+    Plug.Conn.put_private(conn, :req_test_exception, exception)
+  end
+
+  test "retries a write only when the request never left the machine" do
+    for {reason, stub_name} <- [econnrefused: :write_refused, nxdomain: :write_nxdomain] do
+      {counter, stub} = transport_failures_then(reason, 201)
+      Req.Test.stub(stub_name, stub)
+
+      assert {:ok, %{status: 201}} =
+               Client.request(fast_client(stub_name), :sefin, :post, "/nfse", json: %{})
+
+      assert :counters.get(counter, 1) == 2
+    end
+  end
+
+  test "retries a write that the HTTP/2 pool refused before transmitting it" do
+    stub_name = :write_http2_refused
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub_name, fn conn ->
+      count.()
+
+      if :counters.get(counter, 1) == 1,
+        do: http_error(conn, :http2, :unprocessed),
+        else: conn |> Plug.Conn.put_status(201) |> Req.Test.json(%{})
+    end)
+
+    assert {:ok, %{status: 201}} =
+             Client.request(fast_client(stub_name), :sefin, :post, "/nfse", json: %{})
+
+    assert :counters.get(counter, 1) == 2
+  end
+
+  test "sends a write once when the outcome is ambiguous" do
+    for {reason, kind, stub_name} <- [
+          {:timeout, :timeout, :write_timeout},
+          {:closed, :transport, :write_closed}
+        ] do
+      {counter, stub} = always_failing(reason)
+      Req.Test.stub(stub_name, stub)
+
+      assert {:error, %Error{kind: ^kind}} =
+               Client.request(fast_client(stub_name), :sefin, :post, "/nfse", json: %{})
+
+      assert :counters.get(counter, 1) == 1
+    end
+  end
+
+  test "keeps a write at one request even when req_options ask to retry everything" do
+    stub_name = :write_override
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub_name, fn conn ->
+      count.()
+      Plug.Conn.send_resp(conn, 503, "")
+    end)
+
+    client = fast_client(stub_name, retry: :transient)
+
+    assert {:error, %Error{kind: :server, status: 503}} =
+             Client.request(client, :sefin, :post, "/nfse", json: %{})
+
+    assert :counters.get(counter, 1) == 1
+  end
+
+  test "retries a read that could not resolve the host" do
+    stub_name = :read_nxdomain
+    {counter, stub} = transport_failures_then(:nxdomain, 200)
+    Req.Test.stub(stub_name, stub)
+
+    assert {:ok, %{status: 200}} =
+             Client.request(fast_client(stub_name), :sefin, :get, "/nfse/1")
+
+    assert :counters.get(counter, 1) == 2
+  end
+
+  test "retries a read that timed out or whose connection closed" do
+    for {reason, stub_name} <- [timeout: :read_timeout, closed: :read_closed] do
+      {counter, stub} = transport_failures_then(reason, 200)
+      Req.Test.stub(stub_name, stub)
+
+      assert {:ok, %{status: 200}} =
+               Client.request(fast_client(stub_name), :sefin, :get, "/nfse/1")
+
+      assert :counters.get(counter, 1) == 2
+    end
+  end
+
+  test "does not retry a read whose answer broke the HTTP protocol" do
+    stub_name = :read_protocol_error
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub_name, fn conn ->
+      count.()
+      http_error(conn, :http1, :invalid_status_line)
+    end)
+
+    assert {:error, %Error{kind: :transport, details: %Req.HTTPError{protocol: :http1}}} =
+             Client.request(fast_client(stub_name), :sefin, :get, "/nfse/1")
+
+    assert :counters.get(counter, 1) == 1
+  end
+
+  test "retries a read on 503" do
+    stub = :retry_read
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub, fn conn ->
+      count.()
+
+      if :counters.get(counter, 1) == 1 do
+        Plug.Conn.send_resp(conn, 503, "")
+      else
+        Req.Test.json(conn, %{"ok" => true})
+      end
+    end)
+
+    client = client(stub, req_options: [retry_delay: 0, retry_log_level: false])
+
+    assert {:ok, %{status: 200}} = Client.request(client, :sefin, :get, "/nfse/1")
+    assert :counters.get(counter, 1) == 2
+  end
+
+  test "reads PascalCase and camelCase rejections the same way" do
+    stub = :rejections
+
+    Req.Test.stub(stub, fn conn ->
+      body =
+        case conn.request_path do
+          "/API/SefinNacional/pascal" ->
+            %{"erros" => [%{"Codigo" => "E0001", "Descricao" => "x", "Complemento" => "y"}]}
+
+          "/API/SefinNacional/camel" ->
+            %{"erro" => %{"codigo" => "E0002", "descricao" => "z"}}
+        end
+
+      conn |> Plug.Conn.put_status(400) |> Req.Test.json(body)
+    end)
+
+    client = client(stub)
+
+    assert {:error, %Error{kind: :rejected, status: 400, messages: pascal}} =
+             Client.request(client, :sefin, :post, "/pascal", json: %{})
+
+    assert pascal == [%{code: "E0001", description: "x", complement: "y"}]
+
+    assert {:error, %Error{kind: :rejected, messages: camel}} =
+             Client.request(client, :sefin, :post, "/camel", json: %{})
+
+    assert camel == [%{code: "E0002", description: "z", complement: nil}]
+  end
+
+  test "reads a single PascalCase Erro the same way as the camelCase erro" do
+    stub = :pascal_single_error
+
+    Req.Test.stub(stub, fn conn ->
+      conn
+      |> Plug.Conn.put_status(400)
+      |> Req.Test.json(%{"Erro" => %{"Codigo" => "E1235", "Descricao" => "NFS-e já cancelada"}})
+    end)
+
+    assert {:error, %Error{kind: :rejected, messages: messages}} =
+             Client.request(client(stub), :sefin, :post, "/nfse/1/eventos", json: %{})
+
+    assert messages == [%{code: "E1235", description: "NFS-e já cancelada", complement: nil}]
+  end
+
+  test "reads a top-level mensagem when the body has no error list" do
+    assert Client.messages(%{"aliquotas" => nil, "mensagem" => "Alíquotas não encontradas."}) ==
+             [%{code: nil, description: "Alíquotas não encontradas.", complement: nil}]
+
+    assert Client.messages(%{"Erros" => [%{"Codigo" => "E1"}], "mensagem" => "ignorada"}) ==
+             [%{code: "E1", description: nil, complement: nil}]
+
+    assert Client.messages(%{}) == []
+  end
+
+  test "maps 403, 404 and a timeout" do
+    stub = :statuses
+
+    Req.Test.stub(stub, fn conn ->
+      case conn.request_path do
+        "/API/SefinNacional/forbidden" -> Plug.Conn.send_resp(conn, 403, "")
+        "/API/SefinNacional/missing" -> Plug.Conn.send_resp(conn, 404, "")
+        "/API/SefinNacional/slow" -> Req.Test.transport_error(conn, :timeout)
+        "/API/SefinNacional/down" -> Req.Test.transport_error(conn, :econnrefused)
+      end
+    end)
+
+    client = client(stub, req_options: [retry: false])
+
+    assert {:error, %Error{kind: :forbidden, status: 403} = forbidden} =
+             Client.request(client, :sefin, :get, "/forbidden")
+
+    assert Exception.message(forbidden) =~ "acesso foi negado"
+
+    assert {:error, %Error{kind: :not_found, status: 404} = not_found} =
+             Client.request(client, :sefin, :get, "/missing")
+
+    assert Exception.message(not_found) =~ "não foi encontrado"
+
+    assert {:error, %Error{kind: :timeout}} = Client.request(client, :sefin, :get, "/slow")
+    assert {:error, %Error{kind: :transport}} = Client.request(client, :sefin, :get, "/down")
+  end
+
+  test "reports a redirect as unexpected instead of following it" do
+    stub = :redirect
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub, fn conn ->
+      count.()
+      Req.Test.redirect(conn, external: "https://outro-host.example/nfse/1")
+    end)
+
+    assert {:error, %Error{kind: :unexpected, status: 302}} =
+             Client.request(client(stub), :sefin, :get, "/nfse/1")
+
+    assert :counters.get(counter, 1) == 1
+  end
+
+  test "reports an answer whose JSON does not parse by its status, never as a transport failure" do
+    stub = :broken_json
+
+    Req.Test.stub(stub, fn conn ->
+      status = if conn.request_path =~ "down", do: 503, else: 200
+
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.send_resp(status, ~s({"chaveAcesso": ))
+    end)
+
+    client = client(stub)
+
+    assert {:error, %Error{kind: :unexpected, status: 200, details: {:invalid_json, _reason}}} =
+             Client.request(client, :sefin, :get, "/nfse/1")
+
+    assert {:error, %Error{kind: :server, status: 503, messages: []}} =
+             Client.request(client, :sefin, :post, "/down", json: %{})
+  end
+
+  test "does not carry a retried 503 into the transport failure that follows it" do
+    stub_name = :retried_503_then_reset
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub_name, fn conn ->
+      count.()
+
+      if :counters.get(counter, 1) == 1,
+        do: Plug.Conn.send_resp(conn, 503, ""),
+        else: Req.Test.transport_error(conn, :econnreset)
+    end)
+
+    assert {:error, %Error{kind: :transport, status: nil}} =
+             Client.request(fast_client(stub_name), :sefin, :get, "/nfse/1")
+
+    assert :counters.get(counter, 1) == 2
+  end
+
+  test "accepts the statuses the caller lists instead of failing" do
+    stub = :accepted_statuses
+
+    Req.Test.stub(stub, fn conn ->
+      conn |> Plug.Conn.put_status(404) |> Req.Test.json(%{"mensagem" => "fim da fila"})
+    end)
+
+    client = client(stub)
+
+    assert {:ok, %{status: 404, body: %{"mensagem" => "fim da fila"}}} =
+             Client.request(client, :adn, :get, "/q", accept: [404])
+
+    assert {:error, %Error{kind: :not_found}} = Client.request(client, :adn, :get, "/q")
+  end
+end

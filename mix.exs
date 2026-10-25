@@ -1,8 +1,18 @@
 defmodule Nfse.MixProject do
   use Mix.Project
 
-  @version "0.1.0-dev"
+  @version "0.1.0"
   @source_url "https://github.com/ideia4it/nfse"
+
+  @guides ~w(
+    guides/certificado.md
+    guides/ambientes.md
+    guides/emitir.md
+    guides/conferir-apos-timeout.md
+    guides/cancelar.md
+    guides/importar-pelo-adn.md
+    guides/parametros-municipais.md
+  )
 
   def project do
     [
@@ -16,7 +26,8 @@ defmodule Nfse.MixProject do
       description: "Cliente Elixir para a NFS-e Nacional.",
       package: package(),
       docs: docs(),
-      source_url: @source_url
+      source_url: @source_url,
+      test_coverage: test_coverage()
     ]
   end
 
@@ -34,9 +45,10 @@ defmodule Nfse.MixProject do
 
   defp deps do
     [
-      {:req, "~> 0.5"},
-      {:decimal, "~> 2.0"},
+      {:req, "~> 0.7"},
+      {:decimal, "~> 2.0 or ~> 3.0"},
       {:saxy, "~> 1.5"},
+      {:plug, "~> 1.0", only: :test},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]
@@ -48,8 +60,27 @@ defmodule Nfse.MixProject do
         "compile --warnings-as-errors",
         "format --check-formatted",
         "credo --strict",
-        "test"
+        "test --cover"
       ]
+    ]
+  end
+
+  # Os leiautes gerados só delegam ao Nfse.Schema.Runtime, que tem cobertura própria; o suporte
+  # dos testes e o gerador em dev/ não fazem parte do pacote.
+  defp test_coverage do
+    [
+      ignore_modules: [
+        ~r/^Nfse\.Schema\.V1_00\./,
+        ~r/^Nfse\.Schema\.V1_01\./,
+        ~r/^Nfse\.SchemaFixtures/,
+        Nfse.DpsFixtures,
+        Nfse.SefinStub,
+        Nfse.Xmllint,
+        Nfse.RestrictedEnvironment,
+        Mix.Tasks.Nfse.Gen,
+        ~r/^Nfse\.Gen\./
+      ],
+      summary: [threshold: 99]
     ]
   end
 
@@ -62,6 +93,32 @@ defmodule Nfse.MixProject do
   end
 
   defp docs do
-    [main: "readme", extras: ["README.md", "CHANGELOG.md"]]
+    [
+      main: "readme",
+      source_ref: "v#{@version}",
+      extras: ["README.md" | @guides] ++ ["CHANGELOG.md"],
+      groups_for_extras: [Guias: ~r/^guides\//],
+      filter_modules: &published_module?/2,
+      groups_for_modules: [
+        "Leiaute 1.00": ~r/^Nfse\.Schema\.V1_00\./,
+        "Leiaute 1.01": ~r/^Nfse\.Schema\.V1_01\./,
+        Internos: [
+          Nfse.Signature,
+          Nfse.Identifiers,
+          Nfse.Root,
+          Nfse.Schema.Runtime,
+          Nfse.Schema.Xml,
+          Nfse.Schema.SimpleType,
+          Nfse.Codec,
+          Nfse.Response
+        ]
+      ]
+    ]
+  end
+
+  # O gerador vive em dev/ e é compilado em :dev, mas não faz parte do pacote publicado.
+  defp published_module?(module, _metadata) do
+    name = inspect(module)
+    name != "Mix.Tasks.Nfse.Gen" and not String.starts_with?(name, "Nfse.Gen.")
   end
 end

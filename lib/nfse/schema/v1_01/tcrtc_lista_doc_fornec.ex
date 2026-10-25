@@ -1,0 +1,74 @@
+# Gerado por `mix nfse.gen` a partir de tiposComplexos_v1.01.xsd. Não edite.
+defmodule Nfse.Schema.V1_01.TCRTCListaDocFornec do
+  @moduledoc """
+  Tipo `TCRTCListaDocFornec` do leiaute 1.01, em `tiposComplexos_v1.01.xsd`.
+
+  | Campo | XML | Tipo | Ocorrência | Descrição |
+  |---|---|---|---|---|
+  | `cnpj` | `CNPJ` | `TSCNPJ` | 1, escolha 1 | Número da inscrição no Cadastro Nacional de Pessoa Jurídica (CNPJ) do Fornecedor do serviço |
+  | `cpf` | `CPF` | `TSCPF` | 1, escolha 1 | Número da inscrição no Cadastro de Pessoa Física (CPF) do Fornecedor do serviço |
+  | `nif` | `NIF` | `TSNIF` | 1, escolha 1 | Este elemento só deverá ser preenchido para fornecedores não residentes no Brasil |
+  | `c_nao_nif` | `cNaoNIF` | `TSCodNaoNIF` | 1, escolha 1 | Motivo para não informação do NIF: 0 - Não informado na nota de origem; 1 - Dispensado do NIF; 2 - Não exigência do NIF; |
+  | `x_nome` | `xNome` | `TSDesc150` | 1 | Nome / Razão Social do do Fornecedor do serviço |
+
+  Escolha 1: exatamente um entre `cnpj`, `cpf`, `nif` e `c_nao_nif`.
+  """
+
+  alias Nfse.Schema.{Field, Runtime}
+  alias Nfse.Schema.V1_01.SimpleTypes
+
+  defstruct [:cnpj, :cpf, :nif, :c_nao_nif, :x_nome]
+
+  @type t :: %__MODULE__{
+          cnpj: String.t() | nil,
+          cpf: String.t() | nil,
+          nif: String.t() | nil,
+          c_nao_nif: String.t() | nil,
+          x_nome: String.t() | nil
+        }
+
+  @doc false
+  def __schema__(:version), do: "1.01"
+  def __schema__(:simple_types), do: SimpleTypes
+  def __schema__(:choices), do: [%{index: 0, min: 1}]
+  def __schema__(:attributes), do: []
+
+  def __schema__(:fields),
+    do: [
+      %Field{name: :cnpj, xml: "CNPJ", type: {:simple, "TSCNPJ"}, min: 1, max: 1, choice: 0},
+      %Field{name: :cpf, xml: "CPF", type: {:simple, "TSCPF"}, min: 1, max: 1, choice: 0},
+      %Field{name: :nif, xml: "NIF", type: {:simple, "TSNIF"}, min: 1, max: 1, choice: 0},
+      %Field{
+        name: :c_nao_nif,
+        xml: "cNaoNIF",
+        type: {:simple, "TSCodNaoNIF"},
+        min: 1,
+        max: 1,
+        choice: 0
+      },
+      %Field{name: :x_nome, xml: "xNome", type: {:simple, "TSDesc150"}, min: 1, max: 1}
+    ]
+
+  @doc """
+  Converte `attrs` (mapa, lista de palavras-chave ou o próprio struct, também nos campos
+  aninhados) neste struct e valida o resultado. As regras estão em `Nfse.Schema.Runtime`.
+  """
+  @spec new(map() | keyword() | t()) :: {:ok, t()} | {:error, Nfse.Error.t()}
+  def new(attrs), do: Runtime.new(__MODULE__, attrs)
+
+  @doc "Valida o struct contra o XSD e devolve cada erro com o caminho do campo."
+  @spec validate(t()) :: :ok | {:error, Nfse.Error.t()}
+  def validate(struct), do: Runtime.validate(__MODULE__, struct)
+
+  @doc """
+  Escreve o struct já validado como o elemento `tag`, na forma canônica. Os `extra_attributes`,
+  como as declarações de namespace, saem antes dos atributos do struct.
+  """
+  @spec encode(t(), String.t(), [Runtime.attribute()]) :: iodata()
+  def encode(struct, tag, extra_attributes \\ []),
+    do: Runtime.encode(__MODULE__, struct, tag, extra_attributes)
+
+  @doc "Lê o elemento, na árvore do `Saxy.SimpleForm`, como este struct e valida o resultado."
+  @spec decode(Saxy.SimpleForm.t()) :: {:ok, t()} | {:error, Nfse.Error.t()}
+  def decode(element), do: Runtime.decode(__MODULE__, element)
+end

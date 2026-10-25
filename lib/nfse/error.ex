@@ -15,7 +15,7 @@ defmodule Nfse.Error do
   | `:not_found` | 404 |
   | `:server` | 5xx |
   | `:timeout`, `:transport` | sem resposta; numa escrita, o resultado é incerto |
-  | `:unexpected` | resposta que não se consegue ler |
+  | `:unexpected` | resposta que não se consegue ler; com `status` 2xx, numa escrita, o resultado é incerto |
   """
 
   @type kind ::
@@ -47,7 +47,7 @@ defmodule Nfse.Error do
 
   @impl true
   def message(%__MODULE__{} = error) do
-    [summary(error.kind), codes(error.messages), dps_reference(error.dps_id)]
+    [summary(error.kind), codes(error.messages), dps_reference(error)]
     |> Enum.reject(&is_nil/1)
     |> Enum.join(" ")
   end
@@ -69,6 +69,20 @@ defmodule Nfse.Error do
     end
   end
 
-  defp dps_reference(nil), do: nil
-  defp dps_reference(dps_id), do: "Confira a DPS #{dps_id} antes de reenviar."
+  defp dps_reference(%__MODULE__{dps_id: nil}), do: nil
+
+  defp dps_reference(%__MODULE__{dps_id: dps_id} = error) do
+    if uncertain?(error),
+      do: "Confira a DPS #{dps_id} antes de reenviar.",
+      else: "DPS #{dps_id}."
+  end
+
+  # Um 2xx ilegível é incerto como a falta de resposta: a Sefin aceitou a escrita, e só a
+  # conferência diz o que ela guardou.
+  defp uncertain?(%__MODULE__{kind: kind}) when kind in [:timeout, :transport, :server], do: true
+
+  defp uncertain?(%__MODULE__{kind: :unexpected, status: status}) when status in 200..299,
+    do: true
+
+  defp uncertain?(%__MODULE__{}), do: false
 end
