@@ -30,6 +30,7 @@ Todo erro é um `%Nfse.Error{kind: :certificate}` e o motivo fica em `details`:
 | `:invalid_password` | a senha não abre o arquivo |
 | `:invalid_file` | o arquivo não é um PKCS#12 completo, ou falta a chave ou o certificado |
 | `:legacy_provider_missing` | o arquivo usa cifra antiga e o `openssl` do servidor não tem o provider legacy |
+| `:openssl_missing` | o executável `openssl` não está no `PATH` do servidor; o arquivo pode estar perfeito |
 | `:timeout` | o `openssl` não respondeu a tempo |
 | `:unsupported_key` | a chave não é RSA |
 | `:expired` | o certificado venceu (devolvido por `Nfse.Client.new/1`) |

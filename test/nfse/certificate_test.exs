@@ -1,5 +1,6 @@
 defmodule Nfse.CertificateTest do
-  use ExUnit.Case, async: true
+  # Síncrono porque um teste troca o PATH da VM inteira para tirar o openssl do alcance.
+  use ExUnit.Case, async: false
 
   alias Nfse.Certificate
   alias Nfse.Error
@@ -45,6 +46,15 @@ defmodule Nfse.CertificateTest do
 
     refute inspect(error) =~ wrong_password
     refute Exception.message(error) =~ wrong_password
+  end
+
+  test "tells a missing openssl apart from an unreadable file" do
+    path = System.get_env("PATH")
+    on_exit(fn -> System.put_env("PATH", path) end)
+    System.put_env("PATH", Path.join(System.tmp_dir!(), "nfse-without-openssl"))
+
+    assert {:error, %Error{kind: :certificate, details: :openssl_missing}} =
+             Certificate.from_pfx(fixture("modern.pfx"), @password)
   end
 
   test "refuses a truncated bundle at once" do

@@ -21,8 +21,9 @@ defmodule Nfse.Certificate do
   Em produção esse provider vem no pacote `openssl-provider-legacy`. Sem ele, todo certificado
   real falha ao abrir enquanto os fixtures no Mac do desenvolvedor continuam funcionando, por
   isso `:legacy_provider_missing` é um erro próprio e não `:invalid_file`. Um subprocesso que
-  nunca responde recebe o mesmo tratamento e volta como `:timeout`: nenhum dos dois é problema
-  do arquivo, e mandar exportar o certificado de novo levaria a pessoa atrás da coisa errada.
+  nunca responde recebe o mesmo tratamento e volta como `:timeout`, e um host sem o executável
+  `openssl` no `PATH` volta como `:openssl_missing`: nenhum dos três é problema do arquivo, e
+  mandar exportar o certificado de novo levaria a pessoa atrás da coisa errada.
 
   Os erros são `%Nfse.Error{kind: :certificate}` e `details` é um destes:
 
@@ -31,6 +32,7 @@ defmodule Nfse.Certificate do
   | `:invalid_password` | a senha não abre o bundle |
   | `:invalid_file` | o arquivo não é um PKCS#12 completo, ou falta chave ou folha |
   | `:legacy_provider_missing` | o bundle usa cifra legada e o openssl não tem o provider |
+  | `:openssl_missing` | o executável `openssl` não está no `PATH` |
   | `:timeout` | o openssl não respondeu dentro do prazo |
   | `:unsupported_key` | a chave não é RSA, e a assinatura da DPS exige RSA |
   """
@@ -217,7 +219,7 @@ defmodule Nfse.Certificate do
 
   defp run(bundle, password, deadline, legacy?) do
     case System.find_executable("openssl") do
-      nil -> {:error, :invalid_file}
+      nil -> {:error, :openssl_missing}
       executable -> run(executable, bundle, password, deadline, legacy?)
     end
   end

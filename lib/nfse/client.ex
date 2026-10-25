@@ -68,18 +68,24 @@ defmodule Nfse.Client do
 
   @pool_max_idle_time :timer.minutes(5)
 
+  @environments [:production, :restricted]
+
   @doc """
   Monta o cliente.
 
   Opções: `:certificate` e `:environment` (obrigatórias), `:receive_timeout` (padrão `60_000`) e
   `:req_options` (padrão `[]`). Recusa, sem rede, o certificado vencido e o que não serve para
   *clientAuth*.
+
+  Uma opção obrigatória ausente ou um `:environment` fora de `:production` e `:restricted` volta
+  como `%Nfse.Error{kind: :validation}`, com os erros juntos em `details`, nos caminhos
+  `certificate` e `environment` (`:required` ou `:inclusion`).
   """
   @spec new(keyword()) :: {:ok, t()} | {:error, Error.t()}
   def new(opts) do
-    client = struct!(__MODULE__, opts)
-
-    with :ok <- check_certificate(client.certificate) do
+    with :ok <- check_options(opts),
+         client = struct!(__MODULE__, opts),
+         :ok <- check_certificate(client.certificate) do
       {:ok, client}
     end
   end
@@ -135,6 +141,23 @@ defmodule Nfse.Client do
       description: Response.field(error, "descricao"),
       complement: Response.field(error, "complemento")
     }
+  end
+
+  defp check_options(opts) do
+    required_errors =
+      for key <- [:certificate, :environment],
+          is_nil(opts[key]),
+          do: %{path: Atom.to_string(key), error: :required}
+
+    environment_errors =
+      if is_nil(opts[:environment]) or opts[:environment] in @environments,
+        do: [],
+        else: [%{path: "environment", error: :inclusion}]
+
+    case required_errors ++ environment_errors do
+      [] -> :ok
+      errors -> {:error, %Error{kind: :validation, details: errors}}
+    end
   end
 
   defp check_certificate(certificate) do

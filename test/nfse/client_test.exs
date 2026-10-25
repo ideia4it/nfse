@@ -34,6 +34,21 @@ defmodule Nfse.ClientTest do
              Client.new(certificate: certificate("expired.pfx"), environment: :production)
   end
 
+  test "refuses an unknown environment or a missing option instead of failing later" do
+    certificate = certificate("modern.pfx")
+
+    assert {:error,
+            %Error{kind: :validation, details: [%{path: "environment", error: :inclusion}]}} =
+             Client.new(certificate: certificate, environment: :producao)
+
+    assert {:error, %Error{kind: :validation, details: details}} = Client.new([])
+
+    assert details == [
+             %{path: "certificate", error: :required},
+             %{path: "environment", error: :required}
+           ]
+  end
+
   test "refuses a certificate without clientAuth before any request" do
     assert {:error, %Error{kind: :certificate, details: :missing_client_auth}} =
              Client.new(certificate: certificate("no_client_auth.pfx"), environment: :production)
