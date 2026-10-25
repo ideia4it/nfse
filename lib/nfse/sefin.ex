@@ -41,6 +41,8 @@ defmodule Nfse.Sefin do
     * emoji no `xNome`, que o XSD não restringe e a biblioteca aceita; se a Sefin o recusar, a
       recusa chega como `:rejected`
     * campo de texto só com espaços em branco, que a biblioteca nunca apara e envia como está
+    * a recusa de uma DPS repetida pelo `Id`: se a Sefin a aceitar, reenviar depois de uma
+      conferência negativa emite a nota duas vezes
     * a resposta de `GET /nfse/{chave}/eventos/{tipo}/{sequência}`, documentada com o mesmo campo
       `eventoXmlGZipB64` da resposta do registro, ainda não vista de verdade
   """

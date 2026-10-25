@@ -62,7 +62,7 @@ Os resultados:
 | `{:ok, {:not_issued, dps_id}}` | a Sefin não conhece a DPS depois das tentativas |
 | `{:error, %Nfse.Error{}}` | recusa de negócio ou falha da própria conferência |
 
-Em `{:not_issued, dps_id}` reenvie a mesma DPS, com o mesmo `n_dps`, para que o `Id` seja o mesmo e a Sefin possa reconhecer uma duplicata. Gerar um `n_dps` novo para repetir a emissão é o que cria duas notas.
+Em `{:not_issued, dps_id}` reenvie a mesma DPS, com o mesmo `n_dps`, para que o `Id` seja o mesmo e a Sefin possa reconhecer uma duplicata. Gerar um `n_dps` novo para repetir a emissão é o que cria duas notas. A recusa de uma DPS repetida pelo `Id` ainda não foi vista na produção restrita; se a Sefin a aceitar, a nota sai duas vezes. Por isso confira de novo antes de reenviar e registre o reenvio.
 
 ## Quando a conferência também falha
 

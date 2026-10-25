@@ -99,6 +99,7 @@ Estes pontos dependem da execução contra a produção restrita, descrita na pr
   * A série da DPS com `^` ou `$`, que o padrão do XSD permite ao pé da letra.
   * Emoji no `xNome`. O XSD não tem o padrão Latin-1 nesse campo e a biblioteca o segue; se a Sefin recusa, a recusa chega como `:rejected`.
   * Campos de texto só com espaços em branco.
+  * A recusa de uma DPS repetida pelo `Id`, de que depende o reenvio depois de uma conferência negativa (veja [Conferir após timeout](guides/conferir-apos-timeout.md)). Se a Sefin a aceitar, a nota sai duas vezes.
   * O formato da resposta de `GET /nfse/{chave}/eventos/{tipo}/{sequência}` (`Nfse.fetch_event/4`), documentado com o mesmo campo `eventoXmlGZipB64` do registro, e o de `GET /contribuintes/NFSe/{chave}/Eventos` (`Nfse.events/2`).
   * O fluxo de decisão judicial, que só se prova com um município que cadastre a decisão e autorize o contribuinte. Dentro dele, o `nDFSe` `"0"` que o manual exige e o padrão do XSD recusa (`[1-9]{1}[0-9]{0,12}`): a biblioteca segue o manual.
   * As chaves `beneficio` e `regimesEspeciais` dos parâmetros municipais, que o swagger não mostra.

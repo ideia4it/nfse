@@ -2,7 +2,7 @@
 
 A emissão é síncrona: `Nfse.issue/2` monta, valida e assina a DPS, envia a `POST /nfse` e devolve a NFS-e calculada pela Sefin na mesma chamada.
 
-O exemplo abaixo emite o corte de cabelo de R$ 49,90 do "Studio Ana", prestadora do Simples Nacional em Salvador, para uma cliente pessoa física.
+O exemplo abaixo emite o corte de cabelo de R$ 49,90 do "Studio Ana", prestadora do Simples Nacional em Salvador, para um cliente pessoa física.
 
 ```elixir
 dps = %Nfse.DPS{
