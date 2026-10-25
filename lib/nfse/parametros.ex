@@ -101,14 +101,11 @@ defmodule Nfse.Parametros do
   end
 
   defp service_code(code) when is_binary(code) do
-    case String.replace(code, ".", "") do
-      <<aa::binary-2, bb::binary-2, cc::binary-2, ddd::binary-3>> = digits ->
-        if digits =~ ~r/\A\d{9}\z/,
-          do: {:ok, "#{aa}.#{bb}.#{cc}.#{ddd}"},
-          else: invalid("c_serv", :length)
+    digits = String.replace(code, ".", "")
 
-      _wrong_length ->
-        invalid("c_serv", :length)
+    case Regex.run(~r/\A(\d{2})(\d{2})(\d{2})(\d{3})\z/, digits, capture: :all_but_first) do
+      nil -> invalid("c_serv", :length)
+      groups -> {:ok, Enum.join(groups, ".")}
     end
   end
 
