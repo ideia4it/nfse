@@ -95,6 +95,32 @@ defmodule Nfse.Gen.EmitterTest do
     assert source =~ "Escolha 1: no máximo um entre `end_nac` e `end_ext`."
   end
 
+  test "keeps the fiscal acronyms NFSe, DFSe, NFe and DFe as one word in field names", %{
+    tmp_dir: tmp_dir
+  } do
+    write_xsd!(tmp_dir, """
+    <xs:complexType name="TCRef">
+      <xs:sequence>
+        <xs:element name="infNFSe" type="xs:string"/>
+        <xs:element name="chNFe" type="xs:string"/>
+        <xs:element name="nDFSe" type="xs:string"/>
+        <xs:element name="tipoChaveDFe" type="xs:string"/>
+        <xs:element name="cMunNFSeMun" type="xs:string"/>
+        <xs:element name="dFeNacional" type="xs:string"/>
+      </xs:sequence>
+    </xs:complexType>
+    """)
+
+    tmp_dir |> XsdReader.read() |> Emitter.emit("1.01", Path.join(tmp_dir, "out"))
+    source = File.read!(Path.join(tmp_dir, "out/tc_ref.ex"))
+
+    assert source =~
+             "defstruct [:inf_nfse, :ch_nfe, :n_dfse, :tipo_chave_dfe, :c_mun_nfse_mun, :d_fe_nacional]"
+
+    assert source =~ "| `inf_nfse` | `infNFSe` |"
+    assert source =~ "| `ch_nfe` | `chNFe` |"
+  end
+
   test "refuses two XSD names that collapse to the same field", %{tmp_dir: tmp_dir} do
     write_xsd!(tmp_dir, """
     <xs:complexType name="TCNome">

@@ -127,7 +127,7 @@ defmodule Nfse.Gen.Emitter do
 
   defp element_field(context, %Element{} = element, choice) do
     %{
-      name: Macro.underscore(element.name),
+      name: field_name(element.name),
       xml: element.name,
       type: field_type(context, element.type),
       min: element.min,
@@ -141,7 +141,7 @@ defmodule Nfse.Gen.Emitter do
   defp attribute_fields(context, %ComplexType{attributes: attributes}) do
     Enum.map(attributes, fn %Attribute{} = attribute ->
       %{
-        name: Macro.underscore(attribute.name),
+        name: field_name(attribute.name),
         xml: attribute.name,
         type: field_type(context, attribute.type),
         min: if(attribute.required?, do: 1, else: 0),
@@ -151,6 +151,14 @@ defmodule Nfse.Gen.Emitter do
         attribute?: true
       }
     end)
+  end
+
+  # As siglas fiscais terminam em minúscula, e sozinho o Macro.underscore/1 as partiria em duas
+  # palavras: infNFSe viraria inf_nf_se e chNFe viraria ch_n_fe.
+  defp field_name(xml_name) do
+    xml_name
+    |> String.replace(["NFSe", "DFSe", "NFe", "DFe"], &String.capitalize/1)
+    |> Macro.underscore()
   end
 
   # Um tipo desconhecido para o gerador em derivation/2, quando o @type do campo é escrito.
@@ -303,7 +311,9 @@ defmodule Nfse.Gen.Emitter do
     doc =
       moduledoc([
         "Tipos simples do leiaute #{context.version}: as facetas de cada um, com as da base " <>
-          "quando o tipo deriva de outro, e a representação em Elixir.",
+          "quando o tipo deriva de outro, e a representação em Elixir. `TSDec<i>V<f>` vira " <>
+          "`Decimal`, `TSData` e o `xs:date` usado direto num elemento viram `Date`, " <>
+          "`TSDateTimeUTC` vira `DateTime` e o resto fica texto.",
         simple_type_table(model, names)
       ])
 
