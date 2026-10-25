@@ -141,14 +141,19 @@ defmodule Nfse.Sefin do
   @doc false
   @spec fetch_event(Client.t(), String.t(), String.t(), pos_integer()) ::
           {:ok, Event.t()} | {:error, Error.t()}
-  def fetch_event(%Client{} = client, access_key, event_type, sequence)
-      when is_integer(sequence) and sequence > 0 do
-    path =
-      "/nfse/#{Client.path_segment(access_key)}/eventos/#{Client.path_segment(event_type)}/#{sequence}"
+  def fetch_event(%Client{} = client, access_key, event_type, sequence) do
+    case event_reference_errors(access_key, event_type, sequence) do
+      [] ->
+        path =
+          "/nfse/#{Client.path_segment(access_key)}/eventos/#{Client.path_segment(event_type)}/#{sequence}"
 
-    client
-    |> Client.request(:sefin, :get, path)
-    |> read_event(access_key)
+        client
+        |> Client.request(:sefin, :get, path)
+        |> read_event(access_key)
+
+      errors ->
+        {:error, %Error{kind: :validation, details: errors}}
+    end
   end
 
   @doc """
@@ -211,6 +216,20 @@ defmodule Nfse.Sefin do
   end
 
   defp read_event({:error, _error} = failure, _access_key), do: failure
+
+  defp event_reference_errors(access_key, event_type, sequence) do
+    for {path, false, error} <- [
+          {"access_key", digits?(access_key, 50), :pattern},
+          {"tipo_evento", digits?(event_type, 6), :pattern},
+          {"n_seq_evento", is_integer(sequence) and sequence > 0, :type}
+        ],
+        do: %{path: path, error: error}
+  end
+
+  defp digits?(value, count) when is_binary(value),
+    do: byte_size(value) == count and value =~ ~r/\A\d+\z/
+
+  defp digits?(_value, _count), do: false
 
   defp default_ver_aplic, do: "nfse-" <> to_string(Application.spec(:nfse, :vsn))
 

@@ -114,6 +114,22 @@ defmodule Nfse.EventsTest do
              Nfse.fetch_event(client(context), @key, "101101", 1)
   end
 
+  test "refuses a malformed key, event type or sequence before the network", context do
+    Req.Test.stub(context.test, fn _conn -> flunk("the network must not be touched") end)
+
+    assert {:error, %Error{kind: :validation, details: details}} =
+             Nfse.fetch_event(client(context), "123", "1011", 0)
+
+    assert details == [
+             %{path: "access_key", error: :pattern},
+             %{path: "tipo_evento", error: :pattern},
+             %{path: "n_seq_evento", error: :type}
+           ]
+
+    assert {:error, %Error{kind: :validation, details: [%{path: "n_seq_evento", error: :type}]}} =
+             Nfse.fetch_event(client(context), @key, "101101", "1")
+  end
+
   test "fails when the success answer carries no event", context do
     Req.Test.stub(context.test, fn conn ->
       conn |> Plug.Conn.put_status(201) |> Req.Test.json(%{})

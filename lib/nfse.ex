@@ -67,6 +67,10 @@ defmodule Nfse do
 
   @doc """
   Consulta um evento da NFS-e pelo tipo (como `"101101"`) e pelo número de sequência.
+
+  Antes da rede, confere a chave de acesso (50 dígitos), o tipo (6 dígitos) e a sequência (inteiro
+  positivo), e devolve os erros juntos como `%Nfse.Error{kind: :validation}`, nos caminhos
+  `access_key`, `tipo_evento` e `n_seq_evento`.
   """
   @spec fetch_event(Nfse.Client.t(), String.t(), String.t(), pos_integer()) ::
           {:ok, Nfse.Event.t()} | {:error, Nfse.Error.t()}
