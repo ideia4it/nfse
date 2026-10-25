@@ -99,6 +99,26 @@ defmodule Nfse.ParametrosTest do
              Nfse.benefit(client, "2927408", "", ~D[2026-11-01])
   end
 
+  test "reads a benefit by its integer number", context do
+    stub_json(context, 200, %{"beneficio" => %{"z" => 3}}, fn conn ->
+      assert conn.request_path =~ "/parametrizacao/2927408/123/2026-11-01T00:00:00/beneficio"
+    end)
+
+    assert {:ok, %{"z" => 3}} = Nfse.benefit(client(context), "2927408", 123, ~D[2026-11-01])
+  end
+
+  test "refuses a service code or a benefit number of the wrong type before the network",
+       context do
+    refuse_network(context)
+    client = client(context)
+
+    assert {:error, %Error{kind: :validation, details: [%{path: "c_serv", error: :type}]}} =
+             Nfse.rate(client, "2927408", 10_401_000, ~D[2026-11-01])
+
+    assert {:error, %Error{kind: :validation, details: [%{path: "n_beneficio", error: :type}]}} =
+             Nfse.benefit(client, "2927408", nil, ~D[2026-11-01])
+  end
+
   test "reports every invalid argument of one call together", context do
     refuse_network(context)
 
