@@ -6,12 +6,12 @@ Biblioteca Elixir para a NFS-e Nacional, pública no GitHub: nada de certificado
 
 ```bash
 mix deps.get
-mix precommit      # compile --warnings-as-errors + format + credo --strict + test
+mix precommit      # compile --warnings-as-errors + format + credo --strict + test --cover (falha abaixo de 99% de cobertura)
 ```
 
 ## Regras
 
-- Toda função pública devolve `{:ok, _}` ou `{:error, %Nfse.Error{}}`, exceto `stream_distribution/2`, que levanta `Nfse.Error`
+- Toda função pública devolve `{:ok, _}` ou `{:error, %Nfse.Error{}}`, exceto `stream_distribution/3`, que levanta `Nfse.Error`
 - Sem `Application`, sem processo e sem `Application.get_env`: tudo passa por `%Nfse.Client{}`
 - Dependências de runtime: só `req`, `decimal` e `saxy`
 - Nunca edite `lib/nfse/schema/v1_00/` nem `lib/nfse/schema/v1_01/`: rode `mix nfse.gen`
