@@ -5,7 +5,7 @@ defmodule Nfse.Schema.V1_00.TCNFSe do
 
   | Campo | XML | Tipo | Ocorrência | Descrição |
   |---|---|---|---|---|
-  | `inf_nf_se` | `infNFSe` | `Nfse.Schema.V1_00.TCInfNFSe` | 1 |  |
+  | `inf_nfse` | `infNFSe` | `Nfse.Schema.V1_00.TCInfNFSe` | 1 |  |
   | `signature` | `Signature` | `ds:Signature` | 1 | Assinatura digital XMLDSig do documento, guardada como o XML do elemento. |
   | `versao` | `versao`, atributo | `TVerNFSe` | 1 |  |
   """
@@ -13,10 +13,10 @@ defmodule Nfse.Schema.V1_00.TCNFSe do
   alias Nfse.Schema.{Field, Runtime}
   alias Nfse.Schema.V1_00.{SimpleTypes, TCInfNFSe}
 
-  defstruct [:inf_nf_se, :signature, :versao]
+  defstruct [:inf_nfse, :signature, :versao]
 
   @type t :: %__MODULE__{
-          inf_nf_se: TCInfNFSe.t() | nil,
+          inf_nfse: TCInfNFSe.t() | nil,
           signature: String.t() | nil,
           versao: String.t() | nil
         }
@@ -31,7 +31,7 @@ defmodule Nfse.Schema.V1_00.TCNFSe do
 
   def __schema__(:fields),
     do: [
-      %Field{name: :inf_nf_se, xml: "infNFSe", type: {:complex, TCInfNFSe}, min: 1, max: 1},
+      %Field{name: :inf_nfse, xml: "infNFSe", type: {:complex, TCInfNFSe}, min: 1, max: 1},
       %Field{name: :signature, xml: "Signature", type: :signature, min: 1, max: 1}
     ]
 

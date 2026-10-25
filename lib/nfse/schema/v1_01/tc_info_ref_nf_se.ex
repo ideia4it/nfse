@@ -5,15 +5,15 @@ defmodule Nfse.Schema.V1_01.TCInfoRefNFSe do
 
   | Campo | XML | Tipo | Ocorrência | Descrição |
   |---|---|---|---|---|
-  | `ref_nf_se` | `refNFSe` | `TSChaveNFSe` | 1..99 | Chave da NFS-e referenciada |
+  | `ref_nfse` | `refNFSe` | `TSChaveNFSe` | 1..99 | Chave da NFS-e referenciada |
   """
 
   alias Nfse.Schema.{Field, Runtime}
   alias Nfse.Schema.V1_01.SimpleTypes
 
-  defstruct [:ref_nf_se]
+  defstruct [:ref_nfse]
 
-  @type t :: %__MODULE__{ref_nf_se: [String.t()] | nil}
+  @type t :: %__MODULE__{ref_nfse: [String.t()] | nil}
 
   @doc false
   def __schema__(:version), do: "1.01"
@@ -22,9 +22,7 @@ defmodule Nfse.Schema.V1_01.TCInfoRefNFSe do
   def __schema__(:attributes), do: []
 
   def __schema__(:fields),
-    do: [
-      %Field{name: :ref_nf_se, xml: "refNFSe", type: {:simple, "TSChaveNFSe"}, min: 1, max: 99}
-    ]
+    do: [%Field{name: :ref_nfse, xml: "refNFSe", type: {:simple, "TSChaveNFSe"}, min: 1, max: 99}]
 
   @doc """
   Converte `attrs` (mapa, lista de palavras-chave ou o próprio struct, também nos campos

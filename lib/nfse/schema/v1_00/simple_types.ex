@@ -1,7 +1,7 @@
 # Gerado por `mix nfse.gen` a partir de tiposComplexos_v1.00.xsd, tiposEventos_v1.00.xsd e tiposSimples_v1.00.xsd. Não edite.
 defmodule Nfse.Schema.V1_00.SimpleTypes do
   @moduledoc """
-  Tipos simples do leiaute 1.00: as facetas de cada um, com as da base quando o tipo deriva de outro, e a representação em Elixir.
+  Tipos simples do leiaute 1.00: as facetas de cada um, com as da base quando o tipo deriva de outro, e a representação em Elixir. `TSDec<i>V<f>` vira `Decimal`, `TSData` e o `xs:date` usado direto num elemento viram `Date`, `TSDateTimeUTC` vira `DateTime` e o resto fica texto.
 
   | Tipo | Representação | Descrição |
   |---|---|---|

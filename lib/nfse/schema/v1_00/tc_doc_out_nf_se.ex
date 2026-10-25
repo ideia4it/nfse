@@ -5,20 +5,20 @@ defmodule Nfse.Schema.V1_00.TCDocOutNFSe do
 
   | Campo | XML | Tipo | Ocorrência | Descrição |
   |---|---|---|---|---|
-  | `c_mun_nf_se_mun` | `cMunNFSeMun` | `TSCodMunIBGE` | 1 | Código Município emissor da nota eletrônica municipal (Tabela do IBGE) |
-  | `n_nf_se_mun` | `nNFSeMun` | `TSNum15Dig` | 1 | Número da nota eletrônica municipal |
-  | `c_verif_nf_se_mun` | `cVerifNFSeMun` | `TSCodVerificacao` | 1 | Código de Verificação da nota eletrônica municipal |
+  | `c_mun_nfse_mun` | `cMunNFSeMun` | `TSCodMunIBGE` | 1 | Código Município emissor da nota eletrônica municipal (Tabela do IBGE) |
+  | `n_nfse_mun` | `nNFSeMun` | `TSNum15Dig` | 1 | Número da nota eletrônica municipal |
+  | `c_verif_nfse_mun` | `cVerifNFSeMun` | `TSCodVerificacao` | 1 | Código de Verificação da nota eletrônica municipal |
   """
 
   alias Nfse.Schema.{Field, Runtime}
   alias Nfse.Schema.V1_00.SimpleTypes
 
-  defstruct [:c_mun_nf_se_mun, :n_nf_se_mun, :c_verif_nf_se_mun]
+  defstruct [:c_mun_nfse_mun, :n_nfse_mun, :c_verif_nfse_mun]
 
   @type t :: %__MODULE__{
-          c_mun_nf_se_mun: String.t() | nil,
-          n_nf_se_mun: String.t() | nil,
-          c_verif_nf_se_mun: String.t() | nil
+          c_mun_nfse_mun: String.t() | nil,
+          n_nfse_mun: String.t() | nil,
+          c_verif_nfse_mun: String.t() | nil
         }
 
   @doc false
@@ -30,15 +30,15 @@ defmodule Nfse.Schema.V1_00.TCDocOutNFSe do
   def __schema__(:fields),
     do: [
       %Field{
-        name: :c_mun_nf_se_mun,
+        name: :c_mun_nfse_mun,
         xml: "cMunNFSeMun",
         type: {:simple, "TSCodMunIBGE"},
         min: 1,
         max: 1
       },
-      %Field{name: :n_nf_se_mun, xml: "nNFSeMun", type: {:simple, "TSNum15Dig"}, min: 1, max: 1},
+      %Field{name: :n_nfse_mun, xml: "nNFSeMun", type: {:simple, "TSNum15Dig"}, min: 1, max: 1},
       %Field{
-        name: :c_verif_nf_se_mun,
+        name: :c_verif_nfse_mun,
         xml: "cVerifNFSeMun",
         type: {:simple, "TSCodVerificacao"},
         min: 1,

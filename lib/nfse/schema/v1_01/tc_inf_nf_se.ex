@@ -7,7 +7,7 @@ defmodule Nfse.Schema.V1_01.TCInfNFSe do
   |---|---|---|---|---|
   | `x_loc_emi` | `xLocEmi` | `TSDesc150` | 1 | Descrição do código do IBGE do município emissor da NFS-e. |
   | `x_loc_prestacao` | `xLocPrestacao` | `TSDesc150` | 1 | Descrição do local da prestação do serviço. |
-  | `n_nf_se` | `nNFSe` | `TSNNFSe` | 1 | Número sequencial por tipo de emitente da NFS-e. A Sefin Nacional NFS-e irá gerar o número da NFS-e de forma sequencial por emitente. Por se tratar de um ambiente altamente transacional, a Sefin Nacional NFS-e não irá reutilizar números inutilizados durante a geração da NFS-e. |
+  | `n_nfse` | `nNFSe` | `TSNNFSe` | 1 | Número sequencial por tipo de emitente da NFS-e. A Sefin Nacional NFS-e irá gerar o número da NFS-e de forma sequencial por emitente. Por se tratar de um ambiente altamente transacional, a Sefin Nacional NFS-e não irá reutilizar números inutilizados durante a geração da NFS-e. |
   | `c_loc_incid` | `cLocIncid` | `TSCodMunIBGE` | 0..1 | O código de município utilizado pelo Sistema Nacional NFS-e é o código definido para cada município pertencente ao ""Anexo V – Tabela de Código de Municípios do IBGE"", que consta ao final do Manual de Orientação ao Contribuinte do ISSQN para a Sefin Nacional NFS-e. O município de incidência do ISSQN é determinado automaticamente pelo sistema, conforme regras do aspecto espacial da lei complementar federal (LC 116/03) que são válidas para todos os municípios. http://www.planalto.gov.br/ccivil_03/Leis/LCP/Lcp116.htm |
   | `x_loc_incid` | `xLocIncid` | `TSDesc150` | 0..1 | A descrição do código de município utilizado pelo Sistema Nacional NFS-e é o nome de cada município pertencente ao "Anexo V – Tabela de Código de Municípios do IBGE", que consta ao final do Manual de Orientação ao Contribuinte do ISSQN para a Sefin Nacional NFS-e. |
   | `x_trib_nac` | `xTribNac` | `TSDesc600` | 1 | Descrição do código de tributação nacional do ISSQN. |
@@ -19,7 +19,7 @@ defmodule Nfse.Schema.V1_01.TCInfNFSe do
   | `proc_emi` | `procEmi` | `TSProcEmissao` | 0..1 | Processo de Emissão da DPS: 1 - Emissão com aplicativo do contribuinte (via Web Service); 2 - Emissão com aplicativo disponibilizado pelo fisco (Web); 3 - Emissão com aplicativo disponibilizado pelo fisco (App); |
   | `c_stat` | `cStat` | `TStat` | 1 | Código do Status da mensagem |
   | `dh_proc` | `dhProc` | `TSDateTimeUTC` | 1 | Data/Hora da validação da DPS e geração da NFS-e. Data e hora no formato UTC (Universal Coordinated Time):AAAA-MM-DDThh:mm:ssTZD |
-  | `n_df_se` | `nDFSe` | `TSNDFSe` | 1 | Número sequencial do documento gerado por ambiente gerador de DFSe do múnicípio. |
+  | `n_dfse` | `nDFSe` | `TSNDFSe` | 1 | Número sequencial do documento gerado por ambiente gerador de DFSe do múnicípio. |
   | `emit` | `emit` | `Nfse.Schema.V1_01.TCEmitente` | 1 | Grupo de informações da DPS relativas ao emitente da NFS-e |
   | `valores` | `valores` | `Nfse.Schema.V1_01.TCValoresNFSe` | 1 | Grupo de valores referentes ao Serviço Prestado |
   | `x_out_inf` | `xOutInf` | `TSDesc2000` | 0..1 | Uso da Administração Tributária Municipal. |
@@ -34,7 +34,7 @@ defmodule Nfse.Schema.V1_01.TCInfNFSe do
   defstruct [
     :x_loc_emi,
     :x_loc_prestacao,
-    :n_nf_se,
+    :n_nfse,
     :c_loc_incid,
     :x_loc_incid,
     :x_trib_nac,
@@ -46,7 +46,7 @@ defmodule Nfse.Schema.V1_01.TCInfNFSe do
     :proc_emi,
     :c_stat,
     :dh_proc,
-    :n_df_se,
+    :n_dfse,
     :emit,
     :valores,
     :x_out_inf,
@@ -58,7 +58,7 @@ defmodule Nfse.Schema.V1_01.TCInfNFSe do
   @type t :: %__MODULE__{
           x_loc_emi: String.t() | nil,
           x_loc_prestacao: String.t() | nil,
-          n_nf_se: String.t() | nil,
+          n_nfse: String.t() | nil,
           c_loc_incid: String.t() | nil,
           x_loc_incid: String.t() | nil,
           x_trib_nac: String.t() | nil,
@@ -70,7 +70,7 @@ defmodule Nfse.Schema.V1_01.TCInfNFSe do
           proc_emi: String.t() | nil,
           c_stat: String.t() | nil,
           dh_proc: DateTime.t() | nil,
-          n_df_se: String.t() | nil,
+          n_dfse: String.t() | nil,
           emit: TCEmitente.t() | nil,
           valores: TCValoresNFSe.t() | nil,
           x_out_inf: String.t() | nil,
@@ -97,7 +97,7 @@ defmodule Nfse.Schema.V1_01.TCInfNFSe do
         min: 1,
         max: 1
       },
-      %Field{name: :n_nf_se, xml: "nNFSe", type: {:simple, "TSNNFSe"}, min: 1, max: 1},
+      %Field{name: :n_nfse, xml: "nNFSe", type: {:simple, "TSNNFSe"}, min: 1, max: 1},
       %Field{
         name: :c_loc_incid,
         xml: "cLocIncid",
@@ -115,7 +115,7 @@ defmodule Nfse.Schema.V1_01.TCInfNFSe do
       %Field{name: :proc_emi, xml: "procEmi", type: {:simple, "TSProcEmissao"}, min: 0, max: 1},
       %Field{name: :c_stat, xml: "cStat", type: {:simple, "TStat"}, min: 1, max: 1},
       %Field{name: :dh_proc, xml: "dhProc", type: {:simple, "TSDateTimeUTC"}, min: 1, max: 1},
-      %Field{name: :n_df_se, xml: "nDFSe", type: {:simple, "TSNDFSe"}, min: 1, max: 1},
+      %Field{name: :n_dfse, xml: "nDFSe", type: {:simple, "TSNDFSe"}, min: 1, max: 1},
       %Field{name: :emit, xml: "emit", type: {:complex, TCEmitente}, min: 1, max: 1},
       %Field{name: :valores, xml: "valores", type: {:complex, TCValoresNFSe}, min: 1, max: 1},
       %Field{name: :x_out_inf, xml: "xOutInf", type: {:simple, "TSDesc2000"}, min: 0, max: 1},

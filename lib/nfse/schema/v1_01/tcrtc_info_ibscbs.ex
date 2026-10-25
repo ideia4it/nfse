@@ -5,11 +5,11 @@ defmodule Nfse.Schema.V1_01.TCRTCInfoIBSCBS do
 
   | Campo | XML | Tipo | Ocorrência | Descrição |
   |---|---|---|---|---|
-  | `fin_nf_se` | `finNFSe` | `TSRTCFinNFSe` | 1 | Indicador da finalidade da emissão de NFS-e |
+  | `fin_nfse` | `finNFSe` | `TSRTCFinNFSe` | 1 | Indicador da finalidade da emissão de NFS-e |
   | `ind_final` | `indFinal` | `TSRTCIndFinal` | 0..1 | Indica operação de uso ou consumo pessoal (art. 57) |
   | `c_ind_op` | `cIndOp` | `TSRTCCodIndOp` | 1 | Código indicador da operação de fornecimento, conforme tabela "código indicador de operação" |
   | `tp_oper` | `tpOper` | `TSRTCTpOper` | 0..1 | Tipo de Operação com Entes Governamentais ou outros serviços sobre bens imóveis |
-  | `g_ref_nf_se` | `gRefNFSe` | `Nfse.Schema.V1_01.TCInfoRefNFSe` | 0..1 | Grupo de NFS-e referenciadas |
+  | `g_ref_nfse` | `gRefNFSe` | `Nfse.Schema.V1_01.TCInfoRefNFSe` | 0..1 | Grupo de NFS-e referenciadas |
   | `tp_ente_gov` | `tpEnteGov` | `TSRTCTpEnteGov` | 0..1 | Tipo de ente governamental |
   | `ind_dest` | `indDest` | `TSRTCIndDest` | 1 | A respeito do Destinatário dos serviços |
   | `dest` | `dest` | `Nfse.Schema.V1_01.TCRTCInfoDest` | 0..1 | Grupo de informações relativas ao Destinatário |
@@ -28,11 +28,11 @@ defmodule Nfse.Schema.V1_01.TCRTCInfoIBSCBS do
   }
 
   defstruct [
-    :fin_nf_se,
+    :fin_nfse,
     :ind_final,
     :c_ind_op,
     :tp_oper,
-    :g_ref_nf_se,
+    :g_ref_nfse,
     :tp_ente_gov,
     :ind_dest,
     :dest,
@@ -41,11 +41,11 @@ defmodule Nfse.Schema.V1_01.TCRTCInfoIBSCBS do
   ]
 
   @type t :: %__MODULE__{
-          fin_nf_se: String.t() | nil,
+          fin_nfse: String.t() | nil,
           ind_final: String.t() | nil,
           c_ind_op: String.t() | nil,
           tp_oper: String.t() | nil,
-          g_ref_nf_se: TCInfoRefNFSe.t() | nil,
+          g_ref_nfse: TCInfoRefNFSe.t() | nil,
           tp_ente_gov: String.t() | nil,
           ind_dest: String.t() | nil,
           dest: TCRTCInfoDest.t() | nil,
@@ -61,17 +61,11 @@ defmodule Nfse.Schema.V1_01.TCRTCInfoIBSCBS do
 
   def __schema__(:fields),
     do: [
-      %Field{name: :fin_nf_se, xml: "finNFSe", type: {:simple, "TSRTCFinNFSe"}, min: 1, max: 1},
+      %Field{name: :fin_nfse, xml: "finNFSe", type: {:simple, "TSRTCFinNFSe"}, min: 1, max: 1},
       %Field{name: :ind_final, xml: "indFinal", type: {:simple, "TSRTCIndFinal"}, min: 0, max: 1},
       %Field{name: :c_ind_op, xml: "cIndOp", type: {:simple, "TSRTCCodIndOp"}, min: 1, max: 1},
       %Field{name: :tp_oper, xml: "tpOper", type: {:simple, "TSRTCTpOper"}, min: 0, max: 1},
-      %Field{
-        name: :g_ref_nf_se,
-        xml: "gRefNFSe",
-        type: {:complex, TCInfoRefNFSe},
-        min: 0,
-        max: 1
-      },
+      %Field{name: :g_ref_nfse, xml: "gRefNFSe", type: {:complex, TCInfoRefNFSe}, min: 0, max: 1},
       %Field{
         name: :tp_ente_gov,
         xml: "tpEnteGov",

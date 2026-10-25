@@ -10,7 +10,7 @@ defmodule Nfse.Schema.V1_01.TCInfPedReg do
   | `dh_evento` | `dhEvento` | `TSDateTimeUTC` | 1 | Data e hora do evento no formato AAAA-MM-DDThh:mm:ssTZD (UTC - Universal Coordinated Time, onde TZD pode ser -02:00 (Fernando de Noronha), -03:00 (Brasília) ou -04:00 (Manaus), no horário de verão serão -01:00, -02:00 e -03:00. Ex.: 2010-08-19T13:00:15-03:00. |
   | `cnpj_autor` | `CNPJAutor` | `TSCNPJ` | 1, escolha 1 | Número de inscrição federal (CNPJ) do autor do evento. CNPJ do autor do evento (parte interessada ou pessoa que figure na NFS-e. O autor do evento não é o procurador) |
   | `cpf_autor` | `CPFAutor` | `TSCPF` | 1, escolha 1 | Número de inscrição federal (CPF) do autor do evento. CPF do autor do evento (parte interessada ou pessoa que figure na NFS-e como prestador, tomador, intermediário. O autor do evento poderá ser o procurador) |
-  | `ch_nf_se` | `chNFSe` | `TSChaveNFSe` | 1 | Identificador da NFS-e à qual o evento será vinculado |
+  | `ch_nfse` | `chNFSe` | `TSChaveNFSe` | 1 | Identificador da NFS-e à qual o evento será vinculado |
   | `e101101` | `e101101` | `Nfse.Schema.V1_01.TE101101` | 1, escolha 2 | Evento de cancelamento |
   | `e105102` | `e105102` | `Nfse.Schema.V1_01.TE105102` | 1, escolha 2 | Evento de cancelamento por substituição |
   | `e101103` | `e101103` | `Nfse.Schema.V1_01.TE101103` | 1, escolha 2 | Solicitação de Análise Fiscal para Cancelamento de NFS-e |
@@ -62,7 +62,7 @@ defmodule Nfse.Schema.V1_01.TCInfPedReg do
     :dh_evento,
     :cnpj_autor,
     :cpf_autor,
-    :ch_nf_se,
+    :ch_nfse,
     :e101101,
     :e105102,
     :e101103,
@@ -88,7 +88,7 @@ defmodule Nfse.Schema.V1_01.TCInfPedReg do
           dh_evento: DateTime.t() | nil,
           cnpj_autor: String.t() | nil,
           cpf_autor: String.t() | nil,
-          ch_nf_se: String.t() | nil,
+          ch_nfse: String.t() | nil,
           e101101: TE101101.t() | nil,
           e105102: TE105102.t() | nil,
           e101103: TE101103.t() | nil,
@@ -137,7 +137,7 @@ defmodule Nfse.Schema.V1_01.TCInfPedReg do
         max: 1,
         choice: 0
       },
-      %Field{name: :ch_nf_se, xml: "chNFSe", type: {:simple, "TSChaveNFSe"}, min: 1, max: 1},
+      %Field{name: :ch_nfse, xml: "chNFSe", type: {:simple, "TSChaveNFSe"}, min: 1, max: 1},
       %Field{
         name: :e101101,
         xml: "e101101",

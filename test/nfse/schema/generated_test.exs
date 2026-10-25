@@ -39,9 +39,9 @@ defmodule Nfse.Schema.GeneratedTest do
 
       assert {:ok, nfse} = module.decode(element)
       assert nfse.__struct__ == module
-      assert nfse.inf_nf_se.n_nf_se == "42"
-      assert nfse.inf_nf_se.emit.x_nome == "Studio Ana"
-      assert nfse.inf_nf_se.dps.inf_dps.valores.v_serv_prest.v_serv == Decimal.new("49.90")
+      assert nfse.inf_nfse.n_nfse == "42"
+      assert nfse.inf_nfse.emit.x_nome == "Studio Ana"
+      assert nfse.inf_nfse.dps.inf_dps.valores.v_serv_prest.v_serv == Decimal.new("49.90")
       assert nfse.signature =~ "<SignatureValue>"
     end
   end

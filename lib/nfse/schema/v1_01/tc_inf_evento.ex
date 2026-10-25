@@ -9,7 +9,7 @@ defmodule Nfse.Schema.V1_01.TCInfEvento do
   | `amb_ger` | `ambGer` | `TSAmbGeradorEvt` | 1 | Ambiente gerador do evento: 1 - Sistema próprio do município; 2 - Sefin Nacional NFS-e; 3 - ADN NFS-e; |
   | `n_seq_evento` | `nSeqEvento` | `TSNum3Dig` | 1 | Número sequencial do evento para o mesmo tipo de evento. Para os eventos que ocorrem somente uma vez, como é o caso do cancelamento, o nSeqEvento = 001. Para os eventos que possam existir mais de um evento do mesmo tipo o ambiente gerador deverá numerar de forma sequencial. |
   | `dh_proc` | `dhProc` | `TSDateTimeUTC` | 1 | Data/Hora do registro do evento. Data e hora no formato UTC (Universal Coordinated Time): AAAA-MM-DDThh:mm:ssTZD |
-  | `n_df_se` | `nDFSe` | `TSNumDFe` | 1 | Número sequencial do documento gerado por ambiente gerador de DFSe do município |
+  | `n_dfse` | `nDFSe` | `TSNumDFe` | 1 | Número sequencial do documento gerado por ambiente gerador de DFSe do município |
   | `ped_reg_evento` | `pedRegEvento` | `Nfse.Schema.V1_01.TCPedRegEvt` | 1 | Leiaute do pedido de registro do evento gerado pelo autor do evento |
   | `id` | `Id`, atributo | `TSIdEvento` | 1 |  |
   """
@@ -17,14 +17,14 @@ defmodule Nfse.Schema.V1_01.TCInfEvento do
   alias Nfse.Schema.{Field, Runtime}
   alias Nfse.Schema.V1_01.{SimpleTypes, TCPedRegEvt}
 
-  defstruct [:ver_aplic, :amb_ger, :n_seq_evento, :dh_proc, :n_df_se, :ped_reg_evento, :id]
+  defstruct [:ver_aplic, :amb_ger, :n_seq_evento, :dh_proc, :n_dfse, :ped_reg_evento, :id]
 
   @type t :: %__MODULE__{
           ver_aplic: String.t() | nil,
           amb_ger: String.t() | nil,
           n_seq_evento: String.t() | nil,
           dh_proc: DateTime.t() | nil,
-          n_df_se: String.t() | nil,
+          n_dfse: String.t() | nil,
           ped_reg_evento: TCPedRegEvt.t() | nil,
           id: String.t() | nil
         }
@@ -49,7 +49,7 @@ defmodule Nfse.Schema.V1_01.TCInfEvento do
         max: 1
       },
       %Field{name: :dh_proc, xml: "dhProc", type: {:simple, "TSDateTimeUTC"}, min: 1, max: 1},
-      %Field{name: :n_df_se, xml: "nDFSe", type: {:simple, "TSNumDFe"}, min: 1, max: 1},
+      %Field{name: :n_dfse, xml: "nDFSe", type: {:simple, "TSNumDFe"}, min: 1, max: 1},
       %Field{
         name: :ped_reg_evento,
         xml: "pedRegEvento",

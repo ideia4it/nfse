@@ -13,7 +13,7 @@ defmodule Nfse.Schema.V1_01.TCInfDPS do
   | `d_compet` | `dCompet` | `TSData` | 1 | Data em que se iniciou a prestação do serviço: Dia, mês e ano (AAAAMMDD) |
   | `tp_emit` | `tpEmit` | `TSEmitenteDPS` | 1 | Emitente da DPS: 1 - Prestador; 2 - Tomador; 3 - Intermediário |
   | `c_motivo_emis_ti` | `cMotivoEmisTI` | `TSMotivoEmisTI` | 0..1 | Motivo da Emissão da DPS pelo Tomador/Intermediário: 1 - Importação de Serviço; 2 - Tomador/Intermediário obrigado a emitir NFS-e por legislação municipal; 3 - Tomador/Intermediário emitindo NFS-e por recusa de emissão pelo prestador; 4 - Tomador/Intermediário emitindo por rejeitar a NFS-e emitida pelo prestador; |
-  | `ch_nf_se_rej` | `chNFSeRej` | `TSChaveNFSe` | 0..1 | Chave de Acesso da NFS-e rejeitada pelo Tomador/Intermediário. |
+  | `ch_nfse_rej` | `chNFSeRej` | `TSChaveNFSe` | 0..1 | Chave de Acesso da NFS-e rejeitada pelo Tomador/Intermediário. |
   | `c_loc_emi` | `cLocEmi` | `TSCodMunIBGE` | 1 | O código de município utilizado pelo Sistema Nacional NFS-e é o código definido para cada município pertencente ao ""Anexo V – Tabela de Código de Municípios do IBGE"", que consta ao final do Manual de Orientação ao Contribuinte do ISSQN para a Sefin Nacional NFS-e. O município emissor da NFS-e é aquele município em que o emitente da DPS está cadastrado e autorizado a "emitir uma NFS-e", ou seja, emitir uma DPS para que o sistema nacional valide as informações nela prestadas e gere a NFS-e correspondente para o emitente. Para que o sistema nacional emita a NFS-e o município emissor deve ser conveniado e estar ativo no sistema nacional. Além disso o convênio do município deve permitir que os contribuintes do município utilize os emissores públicos do Sistema Nacional NFS-e |
   | `subst` | `subst` | `Nfse.Schema.V1_01.TCSubstituicao` | 0..1 | Dados da NFS-e a ser substituída |
   | `prest` | `prest` | `Nfse.Schema.V1_01.TCInfoPrestador` | 1 | Grupo de informações do DPS relativas ao Prestador de Serviços |
@@ -46,7 +46,7 @@ defmodule Nfse.Schema.V1_01.TCInfDPS do
     :d_compet,
     :tp_emit,
     :c_motivo_emis_ti,
-    :ch_nf_se_rej,
+    :ch_nfse_rej,
     :c_loc_emi,
     :subst,
     :prest,
@@ -67,7 +67,7 @@ defmodule Nfse.Schema.V1_01.TCInfDPS do
           d_compet: Date.t() | nil,
           tp_emit: String.t() | nil,
           c_motivo_emis_ti: String.t() | nil,
-          ch_nf_se_rej: String.t() | nil,
+          ch_nfse_rej: String.t() | nil,
           c_loc_emi: String.t() | nil,
           subst: TCSubstituicao.t() | nil,
           prest: TCInfoPrestador.t() | nil,
@@ -104,7 +104,7 @@ defmodule Nfse.Schema.V1_01.TCInfDPS do
         max: 1
       },
       %Field{
-        name: :ch_nf_se_rej,
+        name: :ch_nfse_rej,
         xml: "chNFSeRej",
         type: {:simple, "TSChaveNFSe"},
         min: 0,

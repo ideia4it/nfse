@@ -5,20 +5,20 @@ defmodule Nfse.Schema.V1_01.TCRTCListaDocDFe do
 
   | Campo | XML | Tipo | Ocorrência | Descrição |
   |---|---|---|---|---|
-  | `tipo_chave_d_fe` | `tipoChaveDFe` | `TSRTCTipoChaveDFe` | 1 | Documento fiscal a que se refere a chaveDfe que seja um dos documentos do Repositório Nacional |
-  | `x_tipo_chave_d_fe` | `xTipoChaveDFe` | `TSDesc255` | 0..1 | Descrição da DF-e a que se refere a chaveDfe que seja um dos documentos do Repositório Nacional Deve ser preenchido apenas quando "tipoChaveDFe = 9 (Outro)" |
-  | `chave_d_fe` | `chaveDFe` | `TSRTCChaveDFe` | 1 | Chave do Documento Fiscal eletrônico do repositório nacional referenciado para os casos de operações já tributadas |
+  | `tipo_chave_dfe` | `tipoChaveDFe` | `TSRTCTipoChaveDFe` | 1 | Documento fiscal a que se refere a chaveDfe que seja um dos documentos do Repositório Nacional |
+  | `x_tipo_chave_dfe` | `xTipoChaveDFe` | `TSDesc255` | 0..1 | Descrição da DF-e a que se refere a chaveDfe que seja um dos documentos do Repositório Nacional Deve ser preenchido apenas quando "tipoChaveDFe = 9 (Outro)" |
+  | `chave_dfe` | `chaveDFe` | `TSRTCChaveDFe` | 1 | Chave do Documento Fiscal eletrônico do repositório nacional referenciado para os casos de operações já tributadas |
   """
 
   alias Nfse.Schema.{Field, Runtime}
   alias Nfse.Schema.V1_01.SimpleTypes
 
-  defstruct [:tipo_chave_d_fe, :x_tipo_chave_d_fe, :chave_d_fe]
+  defstruct [:tipo_chave_dfe, :x_tipo_chave_dfe, :chave_dfe]
 
   @type t :: %__MODULE__{
-          tipo_chave_d_fe: String.t() | nil,
-          x_tipo_chave_d_fe: String.t() | nil,
-          chave_d_fe: String.t() | nil
+          tipo_chave_dfe: String.t() | nil,
+          x_tipo_chave_dfe: String.t() | nil,
+          chave_dfe: String.t() | nil
         }
 
   @doc false
@@ -30,20 +30,20 @@ defmodule Nfse.Schema.V1_01.TCRTCListaDocDFe do
   def __schema__(:fields),
     do: [
       %Field{
-        name: :tipo_chave_d_fe,
+        name: :tipo_chave_dfe,
         xml: "tipoChaveDFe",
         type: {:simple, "TSRTCTipoChaveDFe"},
         min: 1,
         max: 1
       },
       %Field{
-        name: :x_tipo_chave_d_fe,
+        name: :x_tipo_chave_dfe,
         xml: "xTipoChaveDFe",
         type: {:simple, "TSDesc255"},
         min: 0,
         max: 1
       },
-      %Field{name: :chave_d_fe, xml: "chaveDFe", type: {:simple, "TSRTCChaveDFe"}, min: 1, max: 1}
+      %Field{name: :chave_dfe, xml: "chaveDFe", type: {:simple, "TSRTCChaveDFe"}, min: 1, max: 1}
     ]
 
   @doc """

@@ -5,9 +5,9 @@ defmodule Nfse.Schema.V1_00.TCDocDedRed do
 
   | Campo | XML | Tipo | Ocorrência | Descrição |
   |---|---|---|---|---|
-  | `ch_nf_se` | `chNFSe` | `TSChaveNFSe` | 1, escolha 1 | Chave de Acesso da NFS-e (Padrão Nacional) |
-  | `ch_n_fe` | `chNFe` | `TSChaveNFe` | 1, escolha 1 | Chave de Acesso da NF-e |
-  | `nf_se_mun` | `NFSeMun` | `Nfse.Schema.V1_00.TCDocOutNFSe` | 1, escolha 1 | Grupo de informações de Outras NFS-e (Padrão anterior de NFS-e) |
+  | `ch_nfse` | `chNFSe` | `TSChaveNFSe` | 1, escolha 1 | Chave de Acesso da NFS-e (Padrão Nacional) |
+  | `ch_nfe` | `chNFe` | `TSChaveNFe` | 1, escolha 1 | Chave de Acesso da NF-e |
+  | `nfse_mun` | `NFSeMun` | `Nfse.Schema.V1_00.TCDocOutNFSe` | 1, escolha 1 | Grupo de informações de Outras NFS-e (Padrão anterior de NFS-e) |
   | `nfnfs` | `NFNFS` | `Nfse.Schema.V1_00.TCDocNFNFS` | 1, escolha 1 | Grupo de informações de NF ou NFS (Modelo não eletrônico) |
   | `n_doc_fisc` | `nDocFisc` | `TSDesc255` | 1, escolha 1 | Número de documento fiscal |
   | `n_doc` | `nDoc` | `TSDesc255` | 1, escolha 1 | Número de documento não fiscal |
@@ -18,16 +18,16 @@ defmodule Nfse.Schema.V1_00.TCDocDedRed do
   | `v_deducao_reducao` | `vDeducaoReducao` | `TSDec15V2` | 1 | Valor monetário utilizado para dedução/redução do valor do serviço da NFS-e que está sendo emitida (R$). Deve ser menor ou igual ao valor deduzível/redutível (vDedutivelRedutivel). |
   | `fornec` | `fornec` | `Nfse.Schema.V1_00.TCInfoPessoa` | 0..1 | Grupo de informações do Fornecedor em Deduções de Serviços |
 
-  Escolha 1: exatamente um entre `ch_nf_se`, `ch_n_fe`, `nf_se_mun`, `nfnfs`, `n_doc_fisc` e `n_doc`.
+  Escolha 1: exatamente um entre `ch_nfse`, `ch_nfe`, `nfse_mun`, `nfnfs`, `n_doc_fisc` e `n_doc`.
   """
 
   alias Nfse.Schema.{Field, Runtime}
   alias Nfse.Schema.V1_00.{SimpleTypes, TCDocNFNFS, TCDocOutNFSe, TCInfoPessoa}
 
   defstruct [
-    :ch_nf_se,
-    :ch_n_fe,
-    :nf_se_mun,
+    :ch_nfse,
+    :ch_nfe,
+    :nfse_mun,
     :nfnfs,
     :n_doc_fisc,
     :n_doc,
@@ -40,9 +40,9 @@ defmodule Nfse.Schema.V1_00.TCDocDedRed do
   ]
 
   @type t :: %__MODULE__{
-          ch_nf_se: String.t() | nil,
-          ch_n_fe: String.t() | nil,
-          nf_se_mun: TCDocOutNFSe.t() | nil,
+          ch_nfse: String.t() | nil,
+          ch_nfe: String.t() | nil,
+          nfse_mun: TCDocOutNFSe.t() | nil,
           nfnfs: TCDocNFNFS.t() | nil,
           n_doc_fisc: String.t() | nil,
           n_doc: String.t() | nil,
@@ -63,7 +63,7 @@ defmodule Nfse.Schema.V1_00.TCDocDedRed do
   def __schema__(:fields),
     do: [
       %Field{
-        name: :ch_nf_se,
+        name: :ch_nfse,
         xml: "chNFSe",
         type: {:simple, "TSChaveNFSe"},
         min: 1,
@@ -71,7 +71,7 @@ defmodule Nfse.Schema.V1_00.TCDocDedRed do
         choice: 0
       },
       %Field{
-        name: :ch_n_fe,
+        name: :ch_nfe,
         xml: "chNFe",
         type: {:simple, "TSChaveNFe"},
         min: 1,
@@ -79,7 +79,7 @@ defmodule Nfse.Schema.V1_00.TCDocDedRed do
         choice: 0
       },
       %Field{
-        name: :nf_se_mun,
+        name: :nfse_mun,
         xml: "NFSeMun",
         type: {:complex, TCDocOutNFSe},
         min: 1,
