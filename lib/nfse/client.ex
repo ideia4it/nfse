@@ -162,13 +162,11 @@ defmodule Nfse.Client do
     |> Req.new()
   end
 
-  defp transport_opts(%Certificate{} = certificate) do
-    [
-      cert: certificate.certificate,
-      key: certificate.key,
-      cacerts: :public_key.cacerts_get()
-    ]
-  end
+  # Sem `cacerts`: com `verify: :verify_peer`, padrão do Mint, ele lê `:public_key.cacerts_get()`
+  # ao conectar. A lista aqui ficaria copiada em cada pool, que é um por certificado, e entraria no
+  # hash que o Req calcula a cada requisição para achar o pool.
+  defp transport_opts(%Certificate{} = certificate),
+    do: [cert: certificate.certificate, key: certificate.key]
 
   defp enforce_write_retry(options, :post), do: Keyword.put(options, :retry, &retry?/2)
   defp enforce_write_retry(options, _safe_method), do: options

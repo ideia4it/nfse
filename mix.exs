@@ -44,7 +44,7 @@ defmodule Nfse.MixProject do
 
   defp deps do
     [
-      {:req, "~> 0.5"},
+      {:req, "~> 0.7"},
       {:decimal, "~> 2.0 or ~> 3.0"},
       {:saxy, "~> 1.5"},
       {:plug, "~> 1.0", only: :test},
