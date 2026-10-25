@@ -1,8 +1,18 @@
 defmodule Nfse.MixProject do
   use Mix.Project
 
-  @version "0.1.0-dev"
+  @version "0.1.0"
   @source_url "https://github.com/ideia4it/nfse"
+
+  @guides ~w(
+    guides/certificado.md
+    guides/ambientes.md
+    guides/emitir.md
+    guides/conferir-apos-timeout.md
+    guides/cancelar.md
+    guides/importar-pelo-adn.md
+    guides/parametros-municipais.md
+  )
 
   def project do
     [
@@ -65,7 +75,10 @@ defmodule Nfse.MixProject do
   defp docs do
     [
       main: "readme",
-      extras: ["README.md", "CHANGELOG.md"],
+      source_ref: "v#{@version}",
+      extras: ["README.md" | @guides] ++ ["CHANGELOG.md"],
+      groups_for_extras: [Guias: ~r/^guides\//],
+      filter_modules: &published_module?/2,
       groups_for_modules: [
         "Leiaute 1.00": ~r/^Nfse\.Schema\.V1_00\./,
         "Leiaute 1.01": ~r/^Nfse\.Schema\.V1_01\./,
@@ -81,5 +94,11 @@ defmodule Nfse.MixProject do
         ]
       ]
     ]
+  end
+
+  # O gerador vive em dev/ e é compilado em :dev, mas não faz parte do pacote publicado.
+  defp published_module?(module, _metadata) do
+    name = inspect(module)
+    name != "Mix.Tasks.Nfse.Gen" and not String.starts_with?(name, "Nfse.Gen.")
   end
 end

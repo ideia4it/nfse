@@ -38,6 +38,9 @@ defmodule Nfse.Sefin do
     * a assinatura da DPS em RSA-SHA1 ou RSA-SHA256
     * se o ME/EPP do Simples Nacional informa `pAliq`
     * a série com `^` ou `$`, que o padrão do schema permite
+    * emoji no `xNome`, que o XSD não restringe e a biblioteca aceita; se a Sefin o recusar, a
+      recusa chega como `:rejected`
+    * campo de texto só com espaços em branco, que a biblioteca nunca apara e envia como está
     * a resposta de `GET /nfse/{chave}/eventos/{tipo}/{sequência}`, documentada com o mesmo campo
       `eventoXmlGZipB64` da resposta do registro, ainda não vista de verdade
   """

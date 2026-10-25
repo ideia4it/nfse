@@ -2,7 +2,7 @@ defmodule Nfse.Schema do
   @moduledoc """
   Os leiautes da NFS-e Nacional que a biblioteca conhece.
 
-  Cada versão tem um módulo por tipo complexo do XSD, gerado por `mix nfse.gen`, como
+  Cada versão tem um módulo por tipo complexo do XSD, gerado pela tarefa `nfse.gen` do repositório, como
   `Nfse.Schema.V1_01.TCInfDPS`. A 1.01 é a versão escrita; a 1.00 só é lida, para os documentos
   emitidos antes dela.
 
