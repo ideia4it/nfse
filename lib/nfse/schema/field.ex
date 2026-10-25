@@ -12,8 +12,10 @@ defmodule Nfse.Schema.Field do
   | `max` | quantas vezes o elemento pode aparecer; acima de 1, o campo guarda uma lista |
   | `choice` | o índice do `choice` de que o campo faz parte, ou `nil` |
 
-  Num `choice`, o `min` do campo não conta: quem decide se algum ramo é obrigatório é o `min` do
-  próprio `choice`, em `__schema__(:choices)`.
+  Num `choice`, o `min` do ramo não torna o campo obrigatório sozinho. O `choice` exige um ramo
+  quando o `min` dele, em `__schema__(:choices)`, é 1 e cada ramo tem `min` 1; se algum ramo tem
+  `min` 0, ele pode ser escolhido vazio, e nenhum ramo preenchido é válido. Dois ramos preenchidos
+  são sempre erro.
   """
 
   @enforce_keys [:name, :xml, :type, :min, :max]

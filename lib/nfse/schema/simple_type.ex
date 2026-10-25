@@ -86,7 +86,7 @@ defmodule Nfse.Schema.SimpleType do
   defp cast_kind(_kind, value), do: value
 
   defp check_value(:string, value) when is_binary(value) do
-    if String.valid?(value), do: :ok, else: {:error, :type}
+    if xml_text?(value), do: :ok, else: {:error, :type}
   end
 
   defp check_value(:date, %Date{}), do: :ok
@@ -102,6 +102,15 @@ defmodule Nfse.Schema.SimpleType do
   end
 
   defp check_value(_kind, _value), do: {:error, :type}
+
+  # O xs:string só aceita os caracteres do XML 1.0. Um controle como o U+000B, que o Word usa como
+  # quebra de linha, faria o leitor da Sefin recusar o documento inteiro, sem dizer o campo.
+  defp xml_text?(<<character::utf8, rest::binary>>)
+       when character in [0x9, 0xA, 0xD] or character in 0x20..0xD7FF or
+              character in 0xE000..0xFFFD or character >= 0x10000,
+       do: xml_text?(rest)
+
+  defp xml_text?(rest), do: rest == ""
 
   defp lexical(:string, text), do: text
   defp lexical(:date, date), do: Date.to_iso8601(date)

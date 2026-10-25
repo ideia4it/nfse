@@ -10,7 +10,8 @@ defmodule Nfse.Schema.Runtime do
     * `__schema__(:version)`: a versão do leiaute, como `"1.01"`
     * `__schema__(:fields)`: os elementos, como `Nfse.Schema.Field`, na ordem do XSD
     * `__schema__(:attributes)`: os atributos, também como `Nfse.Schema.Field`
-    * `__schema__(:choices)`: `%{index: índice, min: 0 | 1}` de cada `choice`
+    * `__schema__(:choices)`: `%{index: índice, min: 0 | 1}` de cada `choice`, com o `minOccurs`
+      dele
     * `__schema__(:simple_types)`: o módulo de tipos simples
 
   O módulo de tipos simples responde `facets(nome)`, com as facetas já achatadas (as da base
@@ -31,8 +32,12 @@ defmodule Nfse.Schema.Runtime do
   `details`, cada um com o caminho do campo, como `toma.emails[1]` (o índice começa em zero), ou
   `""` quando o erro é do próprio documento.
 
-    * `:string` aceita só string UTF-8 válida. Espaço nunca é aparado, porque cada `whiteSpace` do
+    * `:string` aceita só string UTF-8 válida com os caracteres que o XML 1.0 permite: tab, LF, CR e
+      de U+0020 em diante, menos os substitutos e U+FFFE e U+FFFF. Isso vale também onde o XSD não
+      tem `pattern`, e também na leitura. Espaço nunca é aparado, porque cada `whiteSpace` do
       pacote oficial é `preserve`, e string vazia é um valor, não ausência
+    * um `choice` com dois ramos preenchidos é sempre erro. Sem ramo preenchido, só é erro quando o
+      `choice` tem `min: 1` e cada ramo tem `min: 1`, porque um ramo opcional pode ser escolhido vazio
     * `:date` aceita só `Date`, e `:datetime` só `DateTime`
     * decimal aceita só `Decimal`; casas a mais são `:fraction_digits` e dígitos inteiros a mais são
       `:integer_digits`
@@ -42,12 +47,12 @@ defmodule Nfse.Schema.Runtime do
   |---|---|
   | `:unknown_field` | chave, elemento ou atributo que o tipo não declara |
   | `:required` | campo obrigatório ausente |
-  | `:type` | valor de outro tipo, ou texto solto entre elementos na leitura |
+  | `:type` | valor de outro tipo, caractere que o XML proíbe, ou texto solto entre elementos |
   | `:length`, `:min_length`, `:max_length` | comprimento fora da faceta, em caracteres Unicode |
   | `:enumeration` | valor fora da lista do tipo |
   | `:pattern` | algum `pattern` do tipo não casa |
   | `:integer_digits`, `:fraction_digits` | decimal com dígitos inteiros ou casas a mais |
-  | `:choice` | nenhum ramo de um `choice` obrigatório, ou mais de um |
+  | `:choice` | mais de um ramo de um `choice`, ou nenhum quando algum é obrigatório |
   | `:occurrences` | mais repetições do que o `maxOccurs` permite |
 
   ## Escrita
@@ -254,10 +259,13 @@ defmodule Nfse.Schema.Runtime do
   defp value_errors(_simple_types, :signature, _value, path), do: [%{path: path, error: :type}]
 
   defp choice_errors(%{index: index, min: min}, fields, struct, path) do
-    present =
-      Enum.count(fields, &(&1.choice == index and not absent?(&1, Map.fetch!(struct, &1.name))))
+    branches = Enum.filter(fields, &(&1.choice == index))
+    present = Enum.count(branches, &(not absent?(&1, Map.fetch!(struct, &1.name))))
+    branch_required? = min == 1 and Enum.all?(branches, &(&1.min == 1))
 
-    if present > 1 or present < min, do: [%{path: path, error: :choice}], else: []
+    if present > 1 or (present == 0 and branch_required?),
+      do: [%{path: path, error: :choice}],
+      else: []
   end
 
   defp occurrence_errors(%Field{max: max} = field, values, parent_path)

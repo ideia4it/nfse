@@ -110,6 +110,53 @@ defmodule Nfse.Schema.RuntimeTest do
              )
   end
 
+  test "refuses characters that XML forbids even where the XSD has no pattern" do
+    for forbidden <- ["\v", <<0>>, "\x1F", "\uFFFE", "\uFFFF"] do
+      eight_characters = "ABC" <> forbidden <> "DEFG"
+
+      assert errors(Runtime.new(Nota, nota_attrs(%{c_cib: eight_characters}))) == [
+               %{path: "c_cib", error: :type}
+             ]
+    end
+
+    assert {:ok, nota} = Runtime.new(Nota, nota_attrs(%{c_cib: "AB\tC\nD\rE"}))
+    xml = encode(Nota, nota)
+    assert {:ok, ^nota} = decode(Nota, xml)
+
+    received = String.replace(xml, "<cCIB>AB\tC\nD&#xD;E</cCIB>", "<cCIB>ABC&#11;DEFG</cCIB>")
+    assert errors(decode(Nota, received)) == [%{path: "c_cib", error: :type}]
+  end
+
+  test "accepts no branch in a choice whose branches are optional, but never two" do
+    beneficio = %{n_bm: "29274080400001"}
+    assert {:ok, nota} = Runtime.new(Nota, nota_attrs(%{beneficio: beneficio}))
+    assert {:ok, ^nota} = decode(Nota, encode(Nota, nota))
+
+    percentage = Map.put(beneficio, :p_red_bcbm, Decimal.new("10.00"))
+    assert {:ok, _nota} = Runtime.new(Nota, nota_attrs(%{beneficio: percentage}))
+
+    both = Map.put(percentage, :v_red_bcbm, Decimal.new("5.00"))
+
+    assert errors(Runtime.new(Nota, nota_attrs(%{beneficio: both}))) == [
+             %{path: "beneficio", error: :choice}
+           ]
+  end
+
+  test "accepts no branch in an optional choice, but never two" do
+    endereco = %{x_lgr: "Rua das Flores"}
+    assert {:ok, nota} = Runtime.new(Nota, toma_attrs(%{endereco: endereco}))
+    assert {:ok, ^nota} = decode(Nota, encode(Nota, nota))
+
+    national = Map.put(endereco, :c_mun, "2927408")
+    assert {:ok, _nota} = Runtime.new(Nota, toma_attrs(%{endereco: national}))
+
+    both = Map.put(national, :c_pais, "BR")
+
+    assert errors(Runtime.new(Nota, toma_attrs(%{endereco: both}))) == [
+             %{path: "toma.endereco", error: :choice}
+           ]
+  end
+
   test "refuses text outside Latin-1 in a TSString field" do
     for name <- ["Ana 😊", "Ana — Souza", "“Ana”", "Ana…"] do
       assert errors(Runtime.new(Nota, toma_attrs(%{x_nome: name}))) == [

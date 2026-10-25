@@ -35,6 +35,15 @@ defmodule Nfse.SchemaFixtures.SimpleTypes do
   def facets("TSDec15V2"),
     do: [white_space: "preserve", pattern: ~S"0|0\.[0-9]{2}|[1-9]{1}[0-9]{0,14}(\.[0-9]{2})?"]
 
+  def facets("TSDec3V2"),
+    do: [white_space: "preserve", pattern: ~S"0|0\.[0-9]{2}|[1-9]{1}[0-9]{0,2}(\.[0-9]{2})?"]
+
+  def facets("TSNumBeneficioMunicipal"), do: [pattern: "[0-9]{14}"]
+
+  def facets("TSCodMunIBGE"), do: [white_space: "preserve", pattern: "[0-9]{7}"]
+
+  def facets("TSCodPaisISO"), do: [white_space: "preserve", pattern: "[A-Z]{2}"]
+
   def facets("TSCNPJ"),
     do: [white_space: "preserve", max_length: 14, pattern: "[0-9]{14}"]
 
@@ -70,7 +79,43 @@ defmodule Nfse.SchemaFixtures.SimpleTypes do
   def kind("TSDateTimeUTC"), do: :datetime
   def kind("TSData"), do: :date
   def kind("TSDec15V2"), do: {:decimal, 15, 2}
+  def kind("TSDec3V2"), do: {:decimal, 3, 2}
   def kind(_name), do: :string
+end
+
+defmodule Nfse.SchemaFixtures.Endereco do
+  @moduledoc false
+
+  alias Nfse.Schema.Field
+
+  defstruct [:c_mun, :c_pais, :x_lgr]
+
+  def __schema__(:version), do: "1.01"
+  def __schema__(:simple_types), do: Nfse.SchemaFixtures.SimpleTypes
+  def __schema__(:attributes), do: []
+  def __schema__(:choices), do: [%{index: 0, min: 0}]
+
+  def __schema__(:fields) do
+    [
+      %Field{
+        name: :c_mun,
+        xml: "cMun",
+        type: {:simple, "TSCodMunIBGE"},
+        min: 1,
+        max: 1,
+        choice: 0
+      },
+      %Field{
+        name: :c_pais,
+        xml: "cPais",
+        type: {:simple, "TSCodPaisISO"},
+        min: 1,
+        max: 1,
+        choice: 0
+      },
+      %Field{name: :x_lgr, xml: "xLgr", type: {:simple, "TSString"}, min: 1, max: 1}
+    ]
+  end
 end
 
 defmodule Nfse.SchemaFixtures.Pessoa do
@@ -78,7 +123,7 @@ defmodule Nfse.SchemaFixtures.Pessoa do
 
   alias Nfse.Schema.Field
 
-  defstruct [:cnpj, :cpf, :x_nome, :fone, :emails, :c_int]
+  defstruct [:cnpj, :cpf, :x_nome, :fone, :emails, :c_int, :endereco]
 
   def __schema__(:version), do: "1.01"
   def __schema__(:simple_types), do: Nfse.SchemaFixtures.SimpleTypes
@@ -96,6 +141,13 @@ defmodule Nfse.SchemaFixtures.Pessoa do
         name: :c_int,
         xml: "cInt",
         type: {:simple, "TSCodigoInternoComEspaco"},
+        min: 0,
+        max: 1
+      },
+      %Field{
+        name: :endereco,
+        xml: "end",
+        type: {:complex, Nfse.SchemaFixtures.Endereco},
         min: 0,
         max: 1
       }
@@ -120,12 +172,58 @@ defmodule Nfse.SchemaFixtures.Deducoes do
   end
 end
 
+defmodule Nfse.SchemaFixtures.Beneficio do
+  @moduledoc false
+
+  alias Nfse.Schema.Field
+
+  defstruct [:n_bm, :v_red_bcbm, :p_red_bcbm]
+
+  def __schema__(:version), do: "1.01"
+  def __schema__(:simple_types), do: Nfse.SchemaFixtures.SimpleTypes
+  def __schema__(:attributes), do: []
+  def __schema__(:choices), do: [%{index: 0, min: 1}]
+
+  def __schema__(:fields) do
+    [
+      %Field{name: :n_bm, xml: "nBM", type: {:simple, "TSNumBeneficioMunicipal"}, min: 1, max: 1},
+      %Field{
+        name: :v_red_bcbm,
+        xml: "vRedBCBM",
+        type: {:simple, "TSDec15V2"},
+        min: 0,
+        max: 1,
+        choice: 0
+      },
+      %Field{
+        name: :p_red_bcbm,
+        xml: "pRedBCBM",
+        type: {:simple, "TSDec3V2"},
+        min: 0,
+        max: 1,
+        choice: 0
+      }
+    ]
+  end
+end
+
 defmodule Nfse.SchemaFixtures.Nota do
   @moduledoc false
 
   alias Nfse.Schema.Field
 
-  defstruct [:id, :tp_amb, :serie, :dh_emi, :d_compet, :v_serv, :c_cib, :toma, :deducoes]
+  defstruct [
+    :id,
+    :tp_amb,
+    :serie,
+    :dh_emi,
+    :d_compet,
+    :v_serv,
+    :c_cib,
+    :toma,
+    :deducoes,
+    :beneficio
+  ]
 
   def __schema__(:version), do: "1.01"
   def __schema__(:simple_types), do: Nfse.SchemaFixtures.SimpleTypes
@@ -154,6 +252,13 @@ defmodule Nfse.SchemaFixtures.Nota do
         name: :deducoes,
         xml: "deducoes",
         type: {:complex, Nfse.SchemaFixtures.Deducoes},
+        min: 0,
+        max: 1
+      },
+      %Field{
+        name: :beneficio,
+        xml: "BM",
+        type: {:complex, Nfse.SchemaFixtures.Beneficio},
         min: 0,
         max: 1
       }
