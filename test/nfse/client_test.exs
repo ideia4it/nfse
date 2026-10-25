@@ -118,6 +118,92 @@ defmodule Nfse.ClientTest do
     assert :counters.get(counter, 1) == 1
   end
 
+  defp transport_failures_then(reason, status) do
+    {counter, count} = count_calls()
+
+    stub = fn conn ->
+      count.()
+
+      if :counters.get(counter, 1) > 1 do
+        conn |> Plug.Conn.put_status(status) |> Req.Test.json(%{})
+      else
+        Req.Test.transport_error(conn, reason)
+      end
+    end
+
+    {counter, stub}
+  end
+
+  defp always_failing(reason) do
+    {counter, count} = count_calls()
+
+    stub = fn conn ->
+      count.()
+      Req.Test.transport_error(conn, reason)
+    end
+
+    {counter, stub}
+  end
+
+  defp fast_client(stub_name, extra_req_options \\ []) do
+    client(stub_name, req_options: [retry_delay: 0, retry_log_level: false] ++ extra_req_options)
+  end
+
+  test "retries a write only when the request never left the machine" do
+    for {reason, stub_name} <- [econnrefused: :write_refused, nxdomain: :write_nxdomain] do
+      {counter, stub} = transport_failures_then(reason, 201)
+      Req.Test.stub(stub_name, stub)
+
+      assert {:ok, %{status: 201}} =
+               Client.request(fast_client(stub_name), :sefin, :post, "/nfse", json: %{})
+
+      assert :counters.get(counter, 1) == 2
+    end
+  end
+
+  test "sends a write once when the outcome is ambiguous" do
+    for {reason, kind, stub_name} <- [
+          {:timeout, :timeout, :write_timeout},
+          {:closed, :transport, :write_closed}
+        ] do
+      {counter, stub} = always_failing(reason)
+      Req.Test.stub(stub_name, stub)
+
+      assert {:error, %Error{kind: ^kind}} =
+               Client.request(fast_client(stub_name), :sefin, :post, "/nfse", json: %{})
+
+      assert :counters.get(counter, 1) == 1
+    end
+  end
+
+  test "keeps a write at one request even when req_options ask to retry everything" do
+    stub_name = :write_override
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub_name, fn conn ->
+      count.()
+      Plug.Conn.send_resp(conn, 503, "")
+    end)
+
+    client = fast_client(stub_name, retry: :transient)
+
+    assert {:error, %Error{kind: :server, status: 503}} =
+             Client.request(client, :sefin, :post, "/nfse", json: %{})
+
+    assert :counters.get(counter, 1) == 1
+  end
+
+  test "retries a read that could not resolve the host" do
+    stub_name = :read_nxdomain
+    {counter, stub} = transport_failures_then(:nxdomain, 200)
+    Req.Test.stub(stub_name, stub)
+
+    assert {:ok, %{status: 200}} =
+             Client.request(fast_client(stub_name), :sefin, :get, "/nfse/1")
+
+    assert :counters.get(counter, 1) == 2
+  end
+
   test "retries a read on 503" do
     stub = :retry_read
     {counter, count} = count_calls()

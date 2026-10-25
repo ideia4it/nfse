@@ -14,9 +14,18 @@ defmodule Nfse.Client do
 
   ## Reenvio
 
-  Leituras (`:get` e `:head`) são repetidas em falhas transitórias. Escritas (`:post`) nunca são
-  repetidas: sem resposta, o resultado é incerto e o `Nfse.Error` volta com `:timeout`, `:transport`
-  ou `:server` para o chamador conferir antes de reenviar.
+  Uma escrita (`:post`) só é repetida quando o pedido nunca saiu da máquina: host que não resolve
+  (`:nxdomain`), conexão recusada ou rede inalcançável antes do envio, e as recusas do pool HTTP/2
+  que ocorrem antes de transmitir. Qualquer outra falha é ambígua, porque a Sefin pode já ter
+  emitido a nota: timeout, conexão fechada e toda resposta HTTP, 5xx inclusive, voltam como
+  `Nfse.Error` para o chamador conferir a DPS em vez de reenviá-la. Repetir nesses casos
+  duplicaria a nota fiscal.
+
+  Leituras (`:get` e `:head`) são repetidas em falhas transitórias (408, 429, 500, 502, 503, 504,
+  timeout, conexão recusada ou fechada, `:nxdomain`).
+
+  `req_options` não consegue religar o reenvio de uma escrita: a política de `:post` vale mesmo
+  que `retry:` seja informado ali.
 
   ## Opções do Req
 
@@ -140,10 +149,11 @@ defmodule Nfse.Client do
       ],
       receive_timeout: client.receive_timeout,
       redirect: false,
-      retry: retry_policy(method)
+      retry: &retry?/2
     ]
     |> Keyword.merge(Keyword.take(opts, [:json, :params]))
     |> Keyword.merge(client.req_options)
+    |> enforce_write_retry(method)
     |> Req.new()
   end
 
@@ -155,8 +165,25 @@ defmodule Nfse.Client do
     ]
   end
 
-  defp retry_policy(:post), do: false
-  defp retry_policy(_safe_method), do: :safe_transient
+  defp enforce_write_retry(options, :post), do: Keyword.put(options, :retry, &retry?/2)
+  defp enforce_write_retry(options, _safe_method), do: options
+
+  defp retry?(%Req.Request{method: :post}, outcome), do: never_sent?(outcome)
+  defp retry?(%Req.Request{}, outcome), do: never_sent?(outcome) or transient_read?(outcome)
+
+  defp never_sent?(%Req.TransportError{reason: reason}),
+    do: reason in [:nxdomain, :econnrefused, :ehostunreach, :enetunreach]
+
+  defp never_sent?(%Req.HTTPError{protocol: :http2, reason: reason}),
+    do: reason in [:unprocessed, :pool_not_available]
+
+  defp never_sent?(_outcome), do: false
+
+  defp transient_read?(%Req.Response{status: status}),
+    do: status in [408, 429, 500, 502, 503, 504]
+
+  defp transient_read?(%Req.TransportError{reason: reason}), do: reason in [:timeout, :closed]
+  defp transient_read?(_outcome), do: false
 
   defp classify({:ok, %Req.Response{status: status} = response}, accepted_statuses) do
     if status in 200..299 or status in accepted_statuses do
