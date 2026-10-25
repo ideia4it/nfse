@@ -158,6 +158,11 @@ defmodule Nfse.Signature do
     {tag, attributes} = opening_tag!(element)
 
     cond do
+      not String.ends_with?(element, "</" <> tag <> ">") ->
+        raise ArgumentError,
+              "o elemento a assinar não termina na tag de fechamento `</#{tag}>`. O digest " <>
+                "cobriria os bytes que vêm depois dela, que não fazem parte do elemento."
+
       indented?(element) ->
         raise ArgumentError,
               "o elemento a assinar não está em forma canônica: há espaço entre tags. A " <>

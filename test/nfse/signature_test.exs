@@ -97,7 +97,10 @@ defmodule Nfse.SignatureTest do
           {~s(<infNFSe Id="NFS1"><DPS xmlns="#{@nfse}" versao="1.01"></DPS></infNFSe>), "NFS1",
            ~r/descendente/},
           {~s(<?xml version="1.0" encoding="UTF-8"?><infDPS Id="DPS1"></infDPS>), "DPS1",
-           ~r/tag de abertura/}
+           ~r/tag de abertura/},
+          {~s(<infDPS Id="DPS1"><tpAmb>2</tpAmb></infDPS>\n), "DPS1", ~r/tag de fechamento/},
+          {~s(<infDPS Id="DPS1"><tpAmb>2</tpAmb></infDPS><extra></extra>), "DPS1",
+           ~r/tag de fechamento/}
         ] do
       assert_raise ArgumentError, message, fn ->
         Signature.sign(element, id, certificate, :rsa_sha1)
