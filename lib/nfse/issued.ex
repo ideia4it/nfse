@@ -1,6 +1,6 @@
 defmodule Nfse.Issued do
   @moduledoc """
-  NFS-e emitida pela Sefin em resposta a `Nfse.issue/2`.
+  NFS-e emitida pela Sefin em resposta a `Nfse.issue/2` ou a `Nfse.issue_by_court_order/2`.
 
   `xml` é o documento exatamente como a Sefin o devolveu, para guardar e distribuir; `nfse` é o
   mesmo documento lido como `Nfse.Schema.V1_00.TCNFSe` ou `Nfse.Schema.V1_01.TCNFSe`, conforme o

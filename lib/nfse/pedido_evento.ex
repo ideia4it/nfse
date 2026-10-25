@@ -51,13 +51,10 @@ defmodule Nfse.PedidoEvento do
   | (vários) | `:choice` | mais de um elemento `e<código>` preenchido, ou nenhum |
   """
 
-  alias Nfse.{Client, Error, Identifiers, Root, Signature}
+  alias Nfse.{Client, Error, Identifiers, Root}
   alias Nfse.Schema.V1_01.{TCInfPedReg, TCPedRegEvt}
 
-  @version "1.01"
-  @root_opening_tag ~s(<pedRegEvento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="#{@version}">)
-
-  @provisional_id "PRE" <> String.duplicate("0", 56)
+  @computed %{id: "PRE" <> String.duplicate("0", 56)}
 
   defstruct Enum.map(TCInfPedReg.__schema__(:fields), & &1.name)
 
@@ -75,8 +72,9 @@ defmodule Nfse.PedidoEvento do
   @spec build(t() | map(), Client.t()) :: {:ok, built()} | {:error, Error.t()}
   def build(pedido, %Client{} = client) when is_map(pedido) do
     with {:ok, inf_ped_reg} <- inf_ped_reg(Root.to_attrs(pedido), client),
-         {:ok, pedido} <- TCPedRegEvt.new(%{versao: @version, inf_ped_reg: inf_ped_reg}) do
-      {:ok, %{xml: signed_xml(pedido.inf_ped_reg, client.certificate), id: inf_ped_reg.id}}
+         {:ok, pedido} <- TCPedRegEvt.new(%{versao: Root.version(), inf_ped_reg: inf_ped_reg}) do
+      xml = Root.signed_xml(pedido.inf_ped_reg, "infPedReg", "pedRegEvento", client.certificate)
+      {:ok, %{xml: xml, id: inf_ped_reg.id}}
     end
   end
 
@@ -85,7 +83,7 @@ defmodule Nfse.PedidoEvento do
       TCInfPedReg,
       with_defaults(attrs, client),
       client,
-      @provisional_id,
+      @computed,
       &put_event_request_id/1
     )
   end
@@ -119,16 +117,5 @@ defmodule Nfse.PedidoEvento do
       Enum.find(@event_fields, fn {field, _xml} -> Map.fetch!(inf_ped_reg, field) != nil end)
 
     {:ok, %{inf_ped_reg | id: Identifiers.event_request_id(inf_ped_reg.ch_nfse, event_type)}}
-  end
-
-  # A raiz é escrita em volta dos bytes assinados, e não pelo TCPedRegEvt.encode: a assinatura só
-  # vale para os bytes exatos que ela digeriu.
-  defp signed_xml(inf_ped_reg, certificate) do
-    inf_ped_reg_xml = inf_ped_reg |> TCInfPedReg.encode("infPedReg") |> IO.iodata_to_binary()
-
-    signature =
-      Signature.sign(inf_ped_reg_xml, inf_ped_reg.id, certificate, Signature.default_algorithm())
-
-    IO.iodata_to_binary([@root_opening_tag, inf_ped_reg_xml, signature, "</pedRegEvento>"])
   end
 end

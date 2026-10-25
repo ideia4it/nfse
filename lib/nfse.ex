@@ -16,6 +16,17 @@ defmodule Nfse do
           {:ok, Nfse.Issued.t()} | {:error, Nfse.Error.t()}
   defdelegate issue(client, dps), to: Sefin
 
+  @doc """
+  Emite a NFS-e por decisão administrativa ou judicial, de forma síncrona.
+
+  Monta, valida e assina a NFS-e inteira (`Nfse.NFSe.build/2`) e a envia à Sefin uma única vez. O
+  município precisa ter cadastrado a decisão e autorizado o contribuinte antes. Se a Sefin não
+  responder, o resultado é incerto, como em `issue/2`.
+  """
+  @spec issue_by_court_order(Nfse.Client.t(), Nfse.NFSe.t() | map()) ::
+          {:ok, Nfse.Issued.t()} | {:error, Nfse.Error.t()}
+  defdelegate issue_by_court_order(client, nfse), to: Sefin
+
   @doc "Consulta uma NFS-e na Sefin pela chave de acesso de 50 dígitos."
   @spec fetch(Nfse.Client.t(), String.t()) :: {:ok, Nfse.Document.t()} | {:error, Nfse.Error.t()}
   defdelegate fetch(client, access_key), to: Sefin

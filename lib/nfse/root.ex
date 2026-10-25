@@ -2,17 +2,27 @@ defmodule Nfse.Root do
   @moduledoc """
   Uso interno da biblioteca: não faz parte da API pública.
 
-  A parte comum das raízes que a biblioteca monta e assina (`Nfse.DPS`, `Nfse.PedidoEvento`): os
-  erros que só o chamador pode cometer (`id`, que é sempre calculado, e `tp_amb`, que é sempre o do
-  cliente), o `Id` provisório que deixa o schema validar antes de o `Id` existir, e a junção dos
-  erros do chamador com os do schema.
+  A parte comum das raízes que a biblioteca monta e assina (`Nfse.DPS`, `Nfse.PedidoEvento`,
+  `Nfse.NFSe`): os campos que a biblioteca calcula e que o chamador não pode preencher, como o
+  `Id`; o `tp_amb`, que é sempre o do cliente; os valores provisórios que deixam o schema validar
+  antes de o valor calculado existir; a junção dos erros do chamador com os do schema; e a raiz
+  escrita em volta dos bytes assinados.
   """
 
-  alias Nfse.{Client, Error}
+  alias Nfse.{Client, Error, Signature}
   alias Nfse.Schema.SimpleType
   alias Nfse.Schema.V1_01.SimpleTypes
 
+  @version "1.01"
+  @namespace "http://www.sped.fazenda.gov.br/nfse"
+
   @type detail :: %{path: String.t(), error: atom()}
+
+  @type put_computed :: (struct() -> {:ok, struct()} | {:error, [detail()]})
+
+  @doc "A versão do leiaute que a biblioteca escreve."
+  @spec version() :: String.t()
+  def version, do: @version
 
   @doc "Os campos de um struct de raiz como mapa; um mapa passa como veio."
   @spec to_attrs(struct() | map()) :: map()
@@ -20,42 +30,84 @@ defmodule Nfse.Root do
   def to_attrs(attrs) when is_map(attrs), do: attrs
 
   @doc """
-  Converte e valida `attrs` como o tipo `module` (o `TCInf...` da raiz), com `tp_amb` do cliente e
-  `provisional_id` no lugar do `Id`.
+  Converte e valida `attrs` como o tipo `module` (o `TCInf...` da raiz): `prepare/4` seguido de
+  `validate/4`.
+  """
+  @spec build_inf(module(), map(), Client.t(), map(), put_computed()) ::
+          {:ok, struct()} | {:error, Error.t()}
+  def build_inf(module, attrs, %Client{} = client, computed, put_computed) do
+    {attrs, caller_errors} = prepare(module, attrs, client, computed)
+    validate(module, attrs, caller_errors, put_computed)
+  end
+
+  @doc """
+  Junta a `attrs` os campos `computed`, que a biblioteca calcula, e o `tp_amb` do cliente, quando o
+  tipo `module` tem `tpAmb`. Devolve os attrs e os erros que só o chamador pode cometer: um campo de
+  `computed` preenchido é `:unknown_field`, e um `tp_amb` diferente do ambiente do cliente é
+  `:environment`.
+
+  O valor de um campo de `computed` é o definitivo ou um provisório, válido no padrão do schema,
+  que `validate/4` troca pelo calculado.
+  """
+  @spec prepare(module(), map(), Client.t(), map()) :: {map(), [detail()]}
+  def prepare(module, attrs, %Client{} = client, computed) do
+    environment = environment(module, client)
+    caller_errors = computed_errors(attrs, computed) ++ environment_errors(attrs, environment)
+
+    {attrs |> Map.merge(environment) |> Map.merge(computed), caller_errors}
+  end
+
+  @doc """
+  Converte e valida `attrs` como o tipo `module` e entrega o struct validado a `put_computed`, que
+  troca os valores provisórios pelos calculados e devolve `{:ok, struct}` ou `{:error, details}`.
 
   A validação do tipo exige o `Id`, e o `Id` só sai dos campos já convertidos e validados (`n_dps:
-  42` vira `"42"`). O `Id` provisório, válido no padrão, deixa a primeira validação rodar, e
-  `put_id` o troca pelo calculado: recebe o struct validado e devolve `{:ok, struct}` ou
-  `{:error, details}`.
-
-  Os erros do chamador, os do schema e os de `put_id` voltam juntos, antes de qualquer assinatura.
+  42` vira `"42"`). Os `caller_errors`, os do schema e os de `put_computed` voltam juntos, antes de
+  qualquer assinatura.
   """
-  @spec build_inf(module(), map(), Client.t(), String.t(), (struct() ->
-                                                              {:ok, struct()}
-                                                              | {:error, [detail()]})) ::
+  @spec validate(module(), map(), [detail()], put_computed()) ::
           {:ok, struct()} | {:error, Error.t()}
-  def build_inf(module, attrs, %Client{} = client, provisional_id, put_id) do
-    caller_errors = caller_errors(attrs, client)
-
+  def validate(module, attrs, caller_errors, put_computed) do
     attrs
-    |> Map.merge(%{tp_amb: Client.tp_amb(client), id: provisional_id})
     |> module.new()
-    |> put_id(put_id)
+    |> put_computed(put_computed)
     |> merge_errors(caller_errors)
   end
 
-  @doc "Os erros de `id` passado e de `tp_amb` diferente do ambiente do cliente."
-  @spec caller_errors(map(), Client.t()) :: [detail()]
-  def caller_errors(attrs, %Client{} = client),
-    do: id_errors(attrs) ++ environment_errors(attrs, client)
+  @doc """
+  Escreve o `inf` validado como o elemento `inf_tag`, assina esses bytes com o `certificate` e
+  devolve a raiz `root_tag`, com o namespace da NFS-e e a versão `"1.01"`, em volta deles e da
+  assinatura.
+  """
+  @spec signed_xml(struct(), String.t(), String.t(), Nfse.Certificate.t()) :: binary()
+  def signed_xml(%module{id: id} = inf, inf_tag, root_tag, certificate) do
+    inf_xml = inf |> module.encode(inf_tag) |> IO.iodata_to_binary()
+    signature = Signature.sign(inf_xml, id, certificate, Signature.default_algorithm())
 
-  defp id_errors(attrs) do
-    if Map.has_key?(attrs, :id), do: [%{path: "id", error: :unknown_field}], else: []
+    # A raiz é escrita em volta dos bytes assinados, e não pelo encode do tipo da raiz: a
+    # assinatura só vale para os bytes exatos que ela digeriu.
+    IO.iodata_to_binary([
+      ~s(<#{root_tag} xmlns="#{@namespace}" versao="#{@version}">),
+      inf_xml,
+      signature,
+      "</#{root_tag}>"
+    ])
   end
 
-  defp environment_errors(attrs, client) do
-    tp_amb = Client.tp_amb(client)
+  defp environment(module, client) do
+    if Enum.any?(module.__schema__(:fields), &(&1.name == :tp_amb)),
+      do: %{tp_amb: Client.tp_amb(client)},
+      else: %{}
+  end
 
+  # Um struct gerado traz todas as chaves, com nil: só um valor preenchido é erro do chamador.
+  defp computed_errors(attrs, computed) do
+    for {field, _value} <- computed, Map.get(attrs, field) != nil do
+      %{path: Atom.to_string(field), error: :unknown_field}
+    end
+  end
+
+  defp environment_errors(attrs, %{tp_amb: tp_amb}) do
     case SimpleType.cast(SimpleTypes, "TSTipoAmbiente", Map.get(attrs, :tp_amb)) do
       nil -> []
       ^tp_amb -> []
@@ -63,8 +115,10 @@ defmodule Nfse.Root do
     end
   end
 
-  defp put_id({:ok, inf}, put_id), do: put_id.(inf)
-  defp put_id({:error, %Error{details: errors}}, _put_id), do: {:error, errors}
+  defp environment_errors(_attrs, _type_without_environment), do: []
+
+  defp put_computed({:ok, inf}, put_computed), do: put_computed.(inf)
+  defp put_computed({:error, %Error{details: errors}}, _put_computed), do: {:error, errors}
 
   defp merge_errors({:ok, inf}, []), do: {:ok, inf}
 

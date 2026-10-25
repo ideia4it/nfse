@@ -67,13 +67,10 @@ defmodule Nfse.DPS do
       #=> {:ok, %{xml: "<DPS xmlns=...", id: "DPS292740821122233300018100001000000000000042"}}
   """
 
-  alias Nfse.{Client, Error, Identifiers, Root, Signature}
+  alias Nfse.{Client, Error, Identifiers, Root}
   alias Nfse.Schema.V1_01.{TCDPS, TCInfDPS}
 
-  @version "1.01"
-  @root_opening_tag ~s(<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="#{@version}">)
-
-  @provisional_id "DPS" <> String.duplicate("0", 42)
+  @computed %{id: "DPS" <> String.duplicate("0", 42)}
 
   @issuers %{"1" => :prest, "2" => :toma, "3" => :interm}
 
@@ -89,22 +86,29 @@ defmodule Nfse.DPS do
   @spec build(t() | map(), Client.t()) :: {:ok, built()} | {:error, Error.t()}
   def build(dps, %Client{} = client) when is_map(dps) do
     with {:ok, inf_dps} <- inf_dps(Root.to_attrs(dps), client),
-         {:ok, dps} <- TCDPS.new(%{versao: @version, inf_dps: inf_dps}) do
-      {:ok, %{xml: signed_xml(dps.inf_dps, client.certificate), id: dps.inf_dps.id}}
+         {:ok, dps} <- TCDPS.new(%{versao: Root.version(), inf_dps: inf_dps}) do
+      {:ok,
+       %{xml: Root.signed_xml(dps.inf_dps, "infDPS", "DPS", client.certificate), id: inf_dps.id}}
     end
   end
 
-  defp inf_dps(attrs, client),
-    do: Root.build_inf(TCInfDPS, attrs, client, @provisional_id, &put_dps_id/1)
+  @doc false
+  @spec prepare(map(), Client.t()) :: {map(), [Root.detail()]}
+  def prepare(attrs, %Client{} = client), do: Root.prepare(TCInfDPS, attrs, client, @computed)
 
-  defp put_dps_id(inf_dps) do
+  @doc false
+  @spec put_id(TCInfDPS.t()) :: {:ok, TCInfDPS.t()} | {:error, [Root.detail()]}
+  def put_id(inf_dps) do
     with {:ok, inscription} <- issuer_inscription(inf_dps) do
       id = Identifiers.dps_id(inf_dps.c_loc_emi, inscription, inf_dps.serie, inf_dps.n_dps)
       {:ok, %{inf_dps | id: id}}
     end
   end
 
-  defp issuer_inscription(inf_dps) do
+  @doc false
+  @spec issuer_inscription(TCInfDPS.t()) ::
+          {:ok, Identifiers.inscription()} | {:error, [Root.detail()]}
+  def issuer_inscription(inf_dps) do
     issuer = Map.fetch!(@issuers, inf_dps.tp_emit)
 
     case Map.fetch!(inf_dps, issuer) do
@@ -115,14 +119,5 @@ defmodule Nfse.DPS do
     end
   end
 
-  # A raiz é escrita em volta dos bytes assinados, e não pelo TCDPS.encode: a assinatura só vale
-  # para os bytes exatos que ela digeriu.
-  defp signed_xml(inf_dps, certificate) do
-    inf_dps_xml = inf_dps |> TCInfDPS.encode("infDPS") |> IO.iodata_to_binary()
-
-    signature =
-      Signature.sign(inf_dps_xml, inf_dps.id, certificate, Signature.default_algorithm())
-
-    IO.iodata_to_binary([@root_opening_tag, inf_dps_xml, signature, "</DPS>"])
-  end
+  defp inf_dps(attrs, client), do: Root.build_inf(TCInfDPS, attrs, client, @computed, &put_id/1)
 end

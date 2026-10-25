@@ -11,6 +11,12 @@ defmodule Nfse.Sefin do
   A documentação da Sefin descreve a resposta de sucesso em camelCase, mas os erros chegam em
   PascalCase; os campos de sucesso são lidos nas duas grafias.
 
+  ## Decisão judicial
+
+  `issue_by_court_order/2` envia a NFS-e inteira, montada e assinada por `Nfse.NFSe`, a
+  `POST /decisao-judicial/nfse`, que responde como a emissão normal. A escrita também sai uma única
+  vez, e o erro carrega o `dps_id` da DPS embutida.
+
   ## Eventos
 
   `register_event/2` envia o pedido assinado a `POST /nfse/{chave}/eventos` e `fetch_event/4` lê um
@@ -41,6 +47,7 @@ defmodule Nfse.Sefin do
     Event,
     Identifiers,
     Issued,
+    NFSe,
     PedidoEvento,
     Response,
     Schema
@@ -50,10 +57,21 @@ defmodule Nfse.Sefin do
   @spec issue(Client.t(), DPS.t() | map()) :: {:ok, Issued.t()} | {:error, Error.t()}
   def issue(%Client{} = client, dps) do
     with {:ok, %{xml: xml, id: dps_id}} <- DPS.build(dps, client) do
-      client
-      |> Client.request(:sefin, :post, "/nfse", json: %{"dpsXmlGZipB64" => Codec.pack(xml)})
-      |> read_issued(dps_id)
-      |> put_dps_id(dps_id)
+      post_for_issued(client, "/nfse", %{"dpsXmlGZipB64" => Codec.pack(xml)}, dps_id)
+    end
+  end
+
+  @doc false
+  @spec issue_by_court_order(Client.t(), NFSe.t() | map()) ::
+          {:ok, Issued.t()} | {:error, Error.t()}
+  def issue_by_court_order(%Client{} = client, nfse) do
+    with {:ok, %{xml: xml, dps_id: dps_id}} <- NFSe.build(nfse, client) do
+      post_for_issued(
+        client,
+        "/decisao-judicial/nfse",
+        %{"xmlGZipB64" => Codec.pack(xml)},
+        dps_id
+      )
     end
   end
 
@@ -153,6 +171,13 @@ defmodule Nfse.Sefin do
       {:error, exception} ->
         {:error, %Error{kind: :unexpected, details: exception}}
     end
+  end
+
+  defp post_for_issued(client, path, json, dps_id) do
+    client
+    |> Client.request(:sefin, :post, path, json: json)
+    |> read_issued(dps_id)
+    |> put_dps_id(dps_id)
   end
 
   defp read_issued({:ok, %{body: body}}, dps_id) do
