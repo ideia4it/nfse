@@ -63,6 +63,20 @@ defmodule Nfse.MixProject do
   end
 
   defp docs do
-    [main: "readme", extras: ["README.md", "CHANGELOG.md"]]
+    [
+      main: "readme",
+      extras: ["README.md", "CHANGELOG.md"],
+      groups_for_modules: [
+        "Leiaute 1.00": ~r/^Nfse\.Schema\.V1_00\./,
+        "Leiaute 1.01": ~r/^Nfse\.Schema\.V1_01\./,
+        Internos: [
+          Nfse.Signature,
+          Nfse.Schema.Runtime,
+          Nfse.Schema.Xml,
+          Nfse.Schema.SimpleType,
+          Nfse.Codec
+        ]
+      ]
+    ]
   end
 end

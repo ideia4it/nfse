@@ -1,5 +1,7 @@
 defmodule Nfse.Schema.SimpleType do
   @moduledoc """
+  Uso interno da biblioteca: não faz parte da API pública.
+
   Valor de um tipo simples do XSD: conversão, validação, escrita e leitura.
 
   As regras vêm do módulo de tipos simples do schema, que responde `facets/1` com as facetas já

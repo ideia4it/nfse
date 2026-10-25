@@ -6,8 +6,8 @@ defmodule Nfse.Schema do
   `Nfse.Schema.V1_01.TCInfDPS`. A 1.01 é a versão escrita; a 1.00 só é lida, para os documentos
   emitidos antes dela.
 
-  Os campos têm o nome do XSD em snake_case, com as siglas `NFSe`, `DFSe`, `NFe` e `DFe` contadas
-  como uma palavra: `cLocEmi` vira `c_loc_emi` e `infNFSe` vira `inf_nfse`.
+  Os campos têm o nome do XSD em snake_case, com as siglas NFSe, DFSe, NFe e DFe contadas como
+  uma palavra: `cLocEmi` vira `c_loc_emi` e `infNFSe` vira `inf_nfse`.
   """
 
   alias Nfse.Error

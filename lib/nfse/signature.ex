@@ -1,5 +1,7 @@
 defmodule Nfse.Signature do
   @moduledoc """
+  Uso interno da biblioteca: não faz parte da API pública.
+
   Assinatura XMLDSig envelopada, com C14N inclusiva, da DPS, do pedido de registro de evento e da
   NFS-e de decisão judicial.
 

@@ -1,5 +1,7 @@
 defmodule Nfse.Schema.Runtime do
   @moduledoc """
+  Uso interno da biblioteca: não faz parte da API pública.
+
   Conversão, validação, escrita canônica e leitura de qualquer tipo complexo do schema.
 
   Cada módulo gerado a partir do XSD guarda só o struct e o descritor. Este módulo lê o descritor e

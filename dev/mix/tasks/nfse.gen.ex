@@ -9,7 +9,7 @@ defmodule Mix.Tasks.Nfse.Gen do
   `lib/nfse/schema/` são escritos à mão e ficam como estão.
 
   Cada campo tem o nome do XSD em snake_case, pelo `Macro.underscore/1`, com as siglas fiscais
-  `NFSe`, `DFSe`, `NFe` e `DFe` contadas como uma palavra: `cLocEmi` vira `c_loc_emi`, `infNFSe`
+  NFSe, DFSe, NFe e DFe contadas como uma palavra: `cLocEmi` vira `c_loc_emi`, `infNFSe`
   vira `inf_nfse` e `chNFe` vira `ch_nfe`. Dois nomes do mesmo tipo que dariam o mesmo campo param
   o gerador.
 

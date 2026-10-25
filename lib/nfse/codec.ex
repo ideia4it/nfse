@@ -1,5 +1,7 @@
 defmodule Nfse.Codec do
   @moduledoc """
+  Uso interno da biblioteca: não faz parte da API pública.
+
   Envelope dos documentos XML na API: gzip seguido de base64.
 
   A Sefin recebe a DPS e os eventos assim, e o ADN devolve os documentos no mesmo formato.

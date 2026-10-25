@@ -1,5 +1,7 @@
 defmodule Nfse.Schema.Xml do
   @moduledoc """
+  Uso interno da biblioteca: não faz parte da API pública.
+
   Escaping da forma canônica do XML (C14N 1.0), o mesmo que a assinatura digital calcula.
 
   Texto e valor de atributo escapam conjuntos diferentes de caracteres. Escrever `&#xD;` no lugar
