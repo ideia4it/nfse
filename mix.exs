@@ -76,7 +76,8 @@ defmodule Nfse.MixProject do
           Nfse.Schema.Runtime,
           Nfse.Schema.Xml,
           Nfse.Schema.SimpleType,
-          Nfse.Codec
+          Nfse.Codec,
+          Nfse.Response
         ]
       ]
     ]

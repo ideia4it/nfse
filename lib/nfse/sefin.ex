@@ -42,6 +42,7 @@ defmodule Nfse.Sefin do
     Identifiers,
     Issued,
     PedidoEvento,
+    Response,
     Schema
   }
 
@@ -59,7 +60,8 @@ defmodule Nfse.Sefin do
   @doc false
   @spec fetch(Client.t(), String.t()) :: {:ok, Document.t()} | {:error, Error.t()}
   def fetch(%Client{} = client, access_key) do
-    with {:ok, response} <- Client.request(client, :sefin, :get, "/nfse/" <> segment(access_key)),
+    with {:ok, response} <-
+           Client.request(client, :sefin, :get, "/nfse/" <> Client.path_segment(access_key)),
          {:ok, xml, nfse} <- read_nfse(response.body) do
       {:ok, %Document{access_key: access_key, nfse: nfse, xml: xml}}
     end
@@ -69,7 +71,9 @@ defmodule Nfse.Sefin do
   @spec dps_issued?(Client.t(), String.t()) :: {:ok, boolean()} | {:error, Error.t()}
   def dps_issued?(%Client{} = client, dps_id) do
     with {:ok, response} <-
-           Client.request(client, :sefin, :head, "/dps/" <> segment(dps_id), accept: [404]) do
+           Client.request(client, :sefin, :head, "/dps/" <> Client.path_segment(dps_id),
+             accept: [404]
+           ) do
       {:ok, response.status != 404}
     end
   end
@@ -77,7 +81,8 @@ defmodule Nfse.Sefin do
   @doc false
   @spec fetch_access_key(Client.t(), String.t()) :: {:ok, String.t()} | {:error, Error.t()}
   def fetch_access_key(%Client{} = client, dps_id) do
-    with {:ok, response} <- Client.request(client, :sefin, :get, "/dps/" <> segment(dps_id)) do
+    with {:ok, response} <-
+           Client.request(client, :sefin, :get, "/dps/" <> Client.path_segment(dps_id)) do
       required(response.body, "chaveAcesso")
     end
   end
@@ -90,7 +95,7 @@ defmodule Nfse.Sefin do
       access_key = Identifiers.event_request_access_key(id)
 
       client
-      |> Client.request(:sefin, :post, "/nfse/#{segment(access_key)}/eventos",
+      |> Client.request(:sefin, :post, "/nfse/#{Client.path_segment(access_key)}/eventos",
         json: %{"pedidoRegistroEventoXmlGZipB64" => Codec.pack(xml)}
       )
       |> read_event(access_key)
@@ -116,7 +121,8 @@ defmodule Nfse.Sefin do
           {:ok, Event.t()} | {:error, Error.t()}
   def fetch_event(%Client{} = client, access_key, event_type, sequence)
       when is_integer(sequence) and sequence > 0 do
-    path = "/nfse/#{segment(access_key)}/eventos/#{segment(event_type)}/#{sequence}"
+    path =
+      "/nfse/#{Client.path_segment(access_key)}/eventos/#{Client.path_segment(event_type)}/#{sequence}"
 
     client
     |> Client.request(:sefin, :get, path)
@@ -190,34 +196,25 @@ defmodule Nfse.Sefin do
   defp put_dps_id(success, _dps_id), do: success
 
   defp required(body, camel_key) do
-    case field(body, camel_key) do
+    case Response.field(body, camel_key) do
       value when is_binary(value) -> {:ok, value}
       _missing -> {:error, %Error{kind: :unexpected, details: {:missing_field, camel_key}}}
     end
   end
 
-  defp field(body, camel_key) when is_map(body),
-    do: body[camel_key] || body[pascal_case(camel_key)]
-
-  defp field(_body, _camel_key), do: nil
-
   defp alerts(body) do
-    case field(body, "alertas") do
+    case Response.field(body, "alertas") do
       alerts when is_list(alerts) -> Enum.map(alerts, &Client.message/1)
       _none -> []
     end
   end
 
   defp processed_at(body) do
-    with value when is_binary(value) <- field(body, "dataHoraProcessamento"),
+    with value when is_binary(value) <- Response.field(body, "dataHoraProcessamento"),
          {:ok, datetime, _offset} <- DateTime.from_iso8601(value) do
       datetime
     else
       _unparsed -> nil
     end
   end
-
-  defp pascal_case(<<first::utf8, rest::binary>>), do: String.upcase(<<first::utf8>>) <> rest
-
-  defp segment(value), do: URI.encode(value, &URI.char_unreserved?/1)
 end

@@ -25,7 +25,7 @@ defmodule Nfse.Adn do
       eventos da chave, e a biblioteca assume o mesmo formato do lote da distribuição
   """
 
-  alias Nfse.{Client, Codec, DistributedDocument, Distribution, Error, Sefin}
+  alias Nfse.{Client, Codec, DistributedDocument, Distribution, Error, Response, Sefin}
 
   @document_types %{
     "NFSE" => :nfse,
@@ -62,7 +62,7 @@ defmodule Nfse.Adn do
   @spec events(Client.t(), String.t()) ::
           {:ok, [DistributedDocument.t()]} | {:error, Error.t()}
   def events(%Client{} = client, access_key) do
-    path = "/contribuintes/NFSe/#{URI.encode(access_key, &URI.char_unreserved?/1)}/Eventos"
+    path = "/contribuintes/NFSe/#{Client.path_segment(access_key)}/Eventos"
 
     with {:ok, %Distribution{documents: documents}} <-
            client
@@ -87,7 +87,7 @@ defmodule Nfse.Adn do
   end
 
   defp read_distribution({:ok, %{status: http_status, body: body}}, requested_nsu) do
-    case {field(body, "StatusProcessamento", "statusProcessamento"), http_status} do
+    case {Response.field(body, "statusProcessamento"), http_status} do
       {"DOCUMENTOS_LOCALIZADOS", _status} ->
         {:ok, build_distribution(:documents, body, requested_nsu)}
 
@@ -109,26 +109,26 @@ defmodule Nfse.Adn do
   defp read_distribution({:error, _error} = failure, _requested_nsu), do: failure
 
   defp build_distribution(status, body, requested_nsu) do
-    documents = body |> field("LoteDFe", "loteDFe") |> List.wrap() |> Enum.map(&build_document/1)
+    documents = body |> Response.field("loteDFe") |> List.wrap() |> Enum.map(&build_document/1)
 
     %Distribution{
       status: status,
       documents: documents,
       next_nsu: Enum.max([requested_nsu | Enum.map(documents, & &1.nsu)]),
-      alerts: body |> field("Alertas", "alertas") |> List.wrap() |> Enum.map(&Client.message/1)
+      alerts: body |> Response.field("alertas") |> List.wrap() |> Enum.map(&Client.message/1)
     }
   end
 
   defp build_document(item) do
-    type = Map.get(@document_types, field(item, "TipoDocumento", "tipoDocumento"), :unknown)
-    packed = field(item, "ArquivoXml", "arquivoXml")
+    type = Map.get(@document_types, Response.field(item, "tipoDocumento"), :unknown)
+    packed = Response.field(item, "arquivoXml")
 
     %DistributedDocument{
-      nsu: field(item, "NSU", "nsu"),
-      access_key: field(item, "ChaveAcesso", "chaveAcesso"),
+      nsu: Response.field(item, "nsu", "NSU"),
+      access_key: Response.field(item, "chaveAcesso"),
       type: type,
-      event_type: field(item, "TipoEvento", "tipoEvento"),
-      generated_at: item |> field("DataHoraGeracao", "dataHoraGeracao") |> parse_datetime()
+      event_type: Response.field(item, "tipoEvento"),
+      generated_at: item |> Response.field("dataHoraGeracao") |> parse_datetime()
     }
     |> read_content(packed)
   end
@@ -182,7 +182,4 @@ defmodule Nfse.Adn do
 
   defp messages(body) when is_map(body), do: Client.messages(body)
   defp messages(_body), do: []
-
-  defp field(map, pascal_key, camel_key) when is_map(map), do: map[pascal_key] || map[camel_key]
-  defp field(_other, _pascal_key, _camel_key), do: nil
 end

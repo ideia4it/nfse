@@ -99,6 +99,19 @@ defmodule Nfse.ParametrosTest do
              Nfse.benefit(client, "2927408", "", ~D[2026-11-01])
   end
 
+  test "reports every invalid argument of one call together", context do
+    refuse_network(context)
+
+    assert {:error, %Error{kind: :validation, details: details}} =
+             Nfse.rate(client(context), "29", "01", "x")
+
+    assert details == [
+             %{path: "c_mun", error: :pattern},
+             %{path: "c_serv", error: :length},
+             %{path: "competencia", error: :type}
+           ]
+  end
+
   test "returns not found when the municipality has no rate for the period", context do
     stub_json(context, 404, %{"aliquotas" => nil, "mensagem" => "Alíquotas não encontradas."})
 

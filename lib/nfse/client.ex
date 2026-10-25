@@ -37,6 +37,7 @@ defmodule Nfse.Client do
 
   alias Nfse.Certificate
   alias Nfse.Error
+  alias Nfse.Response
 
   @enforce_keys [:certificate, :environment]
   defstruct [:certificate, :environment, receive_timeout: 60_000, req_options: []]
@@ -98,6 +99,10 @@ defmodule Nfse.Client do
     |> classify(accepted_statuses)
   end
 
+  @doc false
+  @spec path_segment(String.t()) :: String.t()
+  def path_segment(value), do: URI.encode(value, &URI.char_unreserved?/1)
+
   @doc """
   Lê as mensagens de erro de um corpo de resposta.
 
@@ -119,13 +124,11 @@ defmodule Nfse.Client do
   @spec message(map()) :: Error.message()
   def message(error) do
     %{
-      code: field(error, "Codigo", "codigo"),
-      description: field(error, "Descricao", "descricao"),
-      complement: field(error, "Complemento", "complemento")
+      code: Response.field(error, "codigo"),
+      description: Response.field(error, "descricao"),
+      complement: Response.field(error, "complemento")
     }
   end
-
-  defp field(error, pascal_key, camel_key), do: error[pascal_key] || error[camel_key]
 
   defp check_certificate(certificate) do
     cond do

@@ -26,12 +26,12 @@ defmodule Nfse.Parametros do
       com sucesso foi vista; a biblioteca assume esses nomes
   """
 
-  alias Nfse.{Client, Error}
+  alias Nfse.{Client, Error, Response}
 
   @doc false
   @spec municipal_agreement(Client.t(), String.t()) :: {:ok, map()} | {:error, Error.t()}
   def municipal_agreement(%Client{} = client, c_mun) do
-    with {:ok, c_mun} <- municipality_code(c_mun) do
+    with {:ok, [c_mun]} <- validate([municipality_code(c_mun)]) do
       fetch(client, "/parametrizacao/#{c_mun}/convenio", "parametrosConvenio")
     end
   end
@@ -39,9 +39,8 @@ defmodule Nfse.Parametros do
   @doc false
   @spec rate(Client.t(), String.t(), String.t(), Date.t()) :: {:ok, map()} | {:error, Error.t()}
   def rate(%Client{} = client, c_mun, c_serv, competencia) do
-    with {:ok, c_mun} <- municipality_code(c_mun),
-         {:ok, c_serv} <- service_code(c_serv),
-         {:ok, competencia} <- competence(competencia) do
+    with {:ok, [c_mun, c_serv, competencia]} <-
+           validate([municipality_code(c_mun), service_code(c_serv), competence(competencia)]) do
       fetch(client, "/parametrizacao/#{c_mun}/#{c_serv}/#{competencia}/aliquota", "aliquotas")
     end
   end
@@ -49,8 +48,7 @@ defmodule Nfse.Parametros do
   @doc false
   @spec rate_history(Client.t(), String.t(), String.t()) :: {:ok, map()} | {:error, Error.t()}
   def rate_history(%Client{} = client, c_mun, c_serv) do
-    with {:ok, c_mun} <- municipality_code(c_mun),
-         {:ok, c_serv} <- service_code(c_serv) do
+    with {:ok, [c_mun, c_serv]} <- validate([municipality_code(c_mun), service_code(c_serv)]) do
       fetch(client, "/parametrizacao/#{c_mun}/#{c_serv}/historicoaliquotas", "aliquotas")
     end
   end
@@ -59,9 +57,8 @@ defmodule Nfse.Parametros do
   @spec special_regimes(Client.t(), String.t(), String.t(), Date.t()) ::
           {:ok, map()} | {:error, Error.t()}
   def special_regimes(%Client{} = client, c_mun, c_serv, competencia) do
-    with {:ok, c_mun} <- municipality_code(c_mun),
-         {:ok, c_serv} <- service_code(c_serv),
-         {:ok, competencia} <- competence(competencia) do
+    with {:ok, [c_mun, c_serv, competencia]} <-
+           validate([municipality_code(c_mun), service_code(c_serv), competence(competencia)]) do
       fetch(
         client,
         "/parametrizacao/#{c_mun}/#{c_serv}/#{competencia}/regimes_especiais",
@@ -73,8 +70,8 @@ defmodule Nfse.Parametros do
   @doc false
   @spec withholdings(Client.t(), String.t(), Date.t()) :: {:ok, map()} | {:error, Error.t()}
   def withholdings(%Client{} = client, c_mun, competencia) do
-    with {:ok, c_mun} <- municipality_code(c_mun),
-         {:ok, competencia} <- competence(competencia) do
+    with {:ok, [c_mun, competencia]} <-
+           validate([municipality_code(c_mun), competence(competencia)]) do
       fetch(client, "/parametrizacao/#{c_mun}/#{competencia}/retencoes", "retencoes")
     end
   end
@@ -83,9 +80,12 @@ defmodule Nfse.Parametros do
   @spec benefit(Client.t(), String.t(), String.t() | integer(), Date.t()) ::
           {:ok, map()} | {:error, Error.t()}
   def benefit(%Client{} = client, c_mun, n_beneficio, competencia) do
-    with {:ok, c_mun} <- municipality_code(c_mun),
-         {:ok, n_beneficio} <- benefit_number(n_beneficio),
-         {:ok, competencia} <- competence(competencia) do
+    with {:ok, [c_mun, n_beneficio, competencia]} <-
+           validate([
+             municipality_code(c_mun),
+             benefit_number(n_beneficio),
+             competence(competencia)
+           ]) do
       fetch(
         client,
         "/parametrizacao/#{c_mun}/#{n_beneficio}/#{competencia}/beneficio",
@@ -119,25 +119,24 @@ defmodule Nfse.Parametros do
 
   defp benefit_number(number) when is_integer(number), do: {:ok, Integer.to_string(number)}
   defp benefit_number(""), do: invalid("n_beneficio", :blank)
-  defp benefit_number(number) when is_binary(number), do: {:ok, segment(number)}
+  defp benefit_number(number) when is_binary(number), do: {:ok, Client.path_segment(number)}
   defp benefit_number(_other), do: invalid("n_beneficio", :type)
 
-  defp invalid(path, error),
-    do: {:error, %Error{kind: :validation, details: [%{path: path, error: error}]}}
+  defp invalid(path, error), do: {:error, %{path: path, error: error}}
+
+  defp validate(results) do
+    case for({:error, entry} <- results, do: entry) do
+      [] -> {:ok, Enum.map(results, fn {:ok, value} -> value end)}
+      entries -> {:error, %Error{kind: :validation, details: entries}}
+    end
+  end
 
   defp fetch(client, path, key) do
     with {:ok, %{body: body}} <- Client.request(client, :adn, :get, path) do
-      case field(body, key) do
+      case Response.field(body, key) do
         inner when is_map(inner) -> {:ok, inner}
         _missing -> {:error, %Error{kind: :unexpected, details: {:missing_field, key}}}
       end
     end
   end
-
-  defp field(body, key) when is_map(body), do: body[key] || body[pascal_case(key)]
-  defp field(_body, _key), do: nil
-
-  defp pascal_case(<<first::utf8, rest::binary>>), do: String.upcase(<<first::utf8>>) <> rest
-
-  defp segment(value), do: URI.encode(value, &URI.char_unreserved?/1)
 end
