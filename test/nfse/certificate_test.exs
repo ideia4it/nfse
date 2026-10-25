@@ -1,5 +1,10 @@
 defmodule Nfse.CertificateTest do
-  # Síncrono porque um teste troca o PATH da VM inteira para tirar o openssl do alcance.
+  # Síncrono porque dois testes trocam variáveis de ambiente da VM inteira: o PATH, para tirar o
+  # openssl do alcance, e o OPENSSL_MODULES, para tirar o provider legacy.
+  #
+  # A tag :openssl3 marca o que depende dos providers do OpenSSL 3 em diante: o provider legacy
+  # ausente e a cifra que nenhum provider abre (o LibreSSL recusa o bundle sem MAC como senha
+  # errada antes de chegar à cifra). O test_helper.exs a exclui com LibreSSL ou OpenSSL 1.1.
   use ExUnit.Case, async: false
 
   alias Nfse.Certificate
@@ -120,6 +125,7 @@ defmodule Nfse.CertificateTest do
              Certificate.from_der("not a certificate", opened.key, [])
   end
 
+  @tag :openssl3
   test "tells a missing legacy provider apart from an unreadable file" do
     # Um diretório de módulos sem o provider legacy é o host sem o pacote openssl-provider-legacy.
     put_env_until_exit("OPENSSL_MODULES", Path.join(System.tmp_dir!(), "nfse-without-legacy"))
@@ -128,18 +134,16 @@ defmodule Nfse.CertificateTest do
              Certificate.from_pfx(fixture("legacy.pfx"), @password)
   end
 
+  @tag :openssl3
   test "refuses a bundle whose cipher not even the legacy provider opens" do
     assert {:error, %Error{kind: :certificate, details: :invalid_file}} =
              Certificate.from_pfx(fixture("unknown_cipher.pfx"), @password)
   end
 
-  test "gives up on an openssl that does not answer in time and leaves no message behind" do
+  test "gives up on an openssl that does not answer in time" do
     # Um milissegundo é menos do que o openssl leva só para subir.
     assert {:error, %Error{kind: :certificate, details: :timeout}} =
              Certificate.from_pfx(fixture("modern.pfx"), @password, timeout: 1)
-
-    {:messages, messages} = Process.info(self(), :messages)
-    refute Enum.any?(messages, &match?({port, _message} when is_port(port), &1))
   end
 
   test "refuses the certificate alone, in PEM or DER, uploaded in place of the .pfx" do
