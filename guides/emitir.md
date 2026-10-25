@@ -5,12 +5,14 @@ A emissão é síncrona: `Nfse.issue/2` monta, valida e assina a DPS, envia a `P
 O exemplo abaixo emite o corte de cabelo de R$ 49,90 do "Studio Ana", prestadora do Simples Nacional em Salvador, para um cliente pessoa física.
 
 ```elixir
+now = DateTime.truncate(DateTime.utc_now(), :second)
+
 dps = %Nfse.DPS{
-  dh_emi: DateTime.truncate(DateTime.utc_now(), :second),
+  dh_emi: DateTime.add(now, -60),
   ver_aplic: "studio-ana-1.0",
   serie: "1",
   n_dps: 42,
-  d_compet: Date.utc_today(),
+  d_compet: now |> DateTime.add(-3 * 3600) |> DateTime.to_date(),
   tp_emit: 1,
   c_loc_emi: "2927408",
   prest: %{
@@ -20,7 +22,7 @@ dps = %Nfse.DPS{
   toma: %{cpf: "52998224725", x_nome: "Ana Souza"},
   serv: %{
     loc_prest: %{c_loc_prestacao: "2927408"},
-    c_serv: %{c_trib_nac: "010401", x_desc_serv: "Corte de cabelo"}
+    c_serv: %{c_trib_nac: "060101", x_desc_serv: "Corte de cabelo"}
   },
   valores: %{
     v_serv_prest: %{v_serv: Decimal.new("49.90")},
@@ -43,8 +45,16 @@ case Nfse.issue(client, dps) do
 
   {:error, %Nfse.Error{kind: kind, dps_id: dps_id}} when kind in [:timeout, :transport, :server] ->
     {:incerto, dps_id}
+
+  {:error, %Nfse.Error{kind: :unexpected, status: status, dps_id: dps_id}} when status in 200..299 ->
+    {:incerto, dps_id}
+
+  {:error, %Nfse.Error{}} = error ->
+    error
 end
 ```
+
+O `dh_emi` vai um minuto atrás do relógio da máquina: um relógio adiantado faria o horário de emissão cair à frente do da Sefin, e a DPS seria recusada. A `d_compet` é a data em Brasília (UTC-3, sem horário de verão desde 2019) e não `Date.utc_today/0`, que a partir das 21h já está no dia seguinte.
 
 Guarde `issued.access_key` e `issued.xml` na hora. O `xml` é a NFS-e exatamente como a Sefin a devolveu, e é ele que você distribui ao tomador. `issued.nfse` traz o mesmo documento lido, e `issued.alerts` os avisos da Sefin, que não impedem a emissão.
 

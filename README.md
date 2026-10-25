@@ -28,12 +28,16 @@ Emissão do corte de cabelo de R$ 49,90 do "Studio Ana", prestadora do Simples N
 
 {:ok, client} = Nfse.Client.new(certificate: certificate, environment: :restricted)
 
+now = DateTime.truncate(DateTime.utc_now(), :second)
+
 dps = %Nfse.DPS{
-  dh_emi: DateTime.truncate(DateTime.utc_now(), :second),
+  # Um minuto de folga para um relógio adiantado: o dh_emi não pode estar à frente da Sefin.
+  dh_emi: DateTime.add(now, -60),
   ver_aplic: "studio-ana-1.0",
   serie: "1",
   n_dps: 42,
-  d_compet: Date.utc_today(),
+  # A competência é a data em Brasília (UTC-3), que perto da meia-noite difere da data em UTC.
+  d_compet: now |> DateTime.add(-3 * 3600) |> DateTime.to_date(),
   tp_emit: 1,
   c_loc_emi: "2927408",
   prest: %{
@@ -43,7 +47,7 @@ dps = %Nfse.DPS{
   toma: %{cpf: "52998224725", x_nome: "Ana Souza"},
   serv: %{
     loc_prest: %{c_loc_prestacao: "2927408"},
-    c_serv: %{c_trib_nac: "010401", x_desc_serv: "Corte de cabelo"}
+    c_serv: %{c_trib_nac: "060101", x_desc_serv: "Corte de cabelo"}
   },
   valores: %{
     v_serv_prest: %{v_serv: Decimal.new("49.90")},
@@ -103,6 +107,7 @@ Estes pontos dependem da execução contra a produção restrita, descrita na pr
   * O formato da resposta de `GET /nfse/{chave}/eventos/{tipo}/{sequência}` (`Nfse.fetch_event/4`), documentado com o mesmo campo `eventoXmlGZipB64` do registro, e o de `GET /contribuintes/NFSe/{chave}/Eventos` (`Nfse.events/2`).
   * O fluxo de decisão judicial, que só se prova com um município que cadastre a decisão e autorize o contribuinte. Dentro dele, o `nDFSe` `"0"` que o manual exige e o padrão do XSD recusa (`[1-9]{1}[0-9]{0,12}`): a biblioteca segue o manual.
   * As chaves `beneficio` e `regimesEspeciais` dos parâmetros municipais, que o swagger não mostra.
+  * A cadeia do certificado no handshake. A biblioteca lê a cadeia do `.pfx`, mas o TLS envia só a folha. Se a Sefin recusar o handshake pedindo a cadeia, enviar `cert: [folha | cadeia]` (veja "O que não está confirmado" em `Nfse.Client`).
 
 ## Rodando contra a produção restrita
 

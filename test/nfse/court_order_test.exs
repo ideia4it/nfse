@@ -38,7 +38,7 @@ defmodule Nfse.CourtOrderTest do
         v_issqn: Decimal.new("1.00"),
         v_liq: Decimal.new("49.90")
       },
-      dps: %{inf_dps: put_in(studio_ana_dps(), [:serv, :c_serv, :c_trib_nac], "060101")}
+      dps: %{inf_dps: studio_ana_dps()}
     }
   end
 

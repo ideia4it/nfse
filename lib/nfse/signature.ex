@@ -33,8 +33,9 @@ defmodule Nfse.Signature do
   A `Signature` devolvida vai logo depois do elemento assinado, como irmã dele dentro da raiz. Ela
   fica fora da subárvore digerida, e a transformação `enveloped-signature` não tira nada dali.
 
-  Um documento que carrega outro já assinado, como a NFS-e de decisão judicial com a DPS dentro,
-  assina o de dentro primeiro: o digest do de fora cobre a assinatura do de dentro.
+  Cada documento leva uma assinatura só. A NFS-e de decisão judicial carrega a DPS sem assinatura
+  própria (o `Signature` do `TCDPS` é opcional) e só o `infNFSe` é assinado: o digest dele cobre a
+  DPS embutida.
   """
 
   alias Nfse.Certificate

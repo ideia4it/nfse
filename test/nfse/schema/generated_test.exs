@@ -20,7 +20,7 @@ defmodule Nfse.Schema.GeneratedTest do
     assert xml =~
              ~s(<DPS xmlns="#{@nfse_namespace}" versao="1.01"><infDPS Id="DPS2927408211222333000181)
 
-    assert xml =~ "<cTribNac>010401</cTribNac><xDescServ>Corte de cabelo</xDescServ>"
+    assert xml =~ "<cTribNac>060101</cTribNac><xDescServ>Corte de cabelo</xDescServ>"
     assert xml =~ "<vServ>49.90</vServ>"
 
     Nfse.Xmllint.validate!(xml, "test/support/xsd_patched/DPS_v1.01.xsd")

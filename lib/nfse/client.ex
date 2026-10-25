@@ -33,6 +33,13 @@ defmodule Nfse.Client do
   substitui o pool inteiro, porque o Req não aceita nome junto com opções de pool. Quem faz isso
   precisa iniciar o próprio Finch com o certificado em `conn_opts: [transport_opts: [cert: ..., key: ...]]`,
   senão o mTLS não acontece.
+
+  ## O que não está confirmado
+
+    * a cadeia do certificado no handshake: `Nfse.Certificate` lê a cadeia do `.pfx`, mas o TLS
+      envia só a folha. Se a Sefin recusar o handshake pedindo a cadeia, enviar
+      `cert: [folha | cadeia]` em `transport_opts`; até a biblioteca fazer isso, quem precisar
+      inicia o próprio Finch assim, como em "Opções do Req"
   """
 
   alias Nfse.Certificate

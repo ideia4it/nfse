@@ -99,7 +99,7 @@ defmodule Nfse.NFSe do
       #=>         access_key: "2927408221122233300018100000000000012611...",
       #=>         dps_id: "DPS292740821122233300018100001000000000000042"}}
 
-  Aqui `dps` são os campos do exemplo de `Nfse.DPS`, com o `c_trib_nac` `"060101"`.
+  Aqui `dps` são os campos do exemplo de `Nfse.DPS`.
 
   ## O que não está confirmado
 

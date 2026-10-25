@@ -115,7 +115,7 @@ defmodule Nfse.Restricted.JourneyTest do
       toma: %{cpf: "52998224725", x_nome: taker_name},
       serv: %{
         loc_prest: %{c_loc_prestacao: c_loc_emi},
-        c_serv: %{c_trib_nac: "010401", x_desc_serv: "Corte de cabelo"}
+        c_serv: %{c_trib_nac: "060101", x_desc_serv: "Corte de cabelo"}
       },
       valores: %{
         v_serv_prest: %{v_serv: Decimal.new("49.90")},
