@@ -130,6 +130,13 @@ defmodule Nfse.EventsTest do
              Nfse.fetch_event(client(context), @key, "101101", "1")
   end
 
+  test "refuses an event type given as a number before the network", context do
+    Req.Test.stub(context.test, fn _conn -> flunk("the network must not be touched") end)
+
+    assert {:error, %Error{kind: :validation, details: [%{path: "tipo_evento", error: :pattern}]}} =
+             Nfse.fetch_event(client(context), @key, 101_101, 1)
+  end
+
   test "fails when the success answer carries no event", context do
     Req.Test.stub(context.test, fn conn ->
       conn |> Plug.Conn.put_status(201) |> Req.Test.json(%{})
