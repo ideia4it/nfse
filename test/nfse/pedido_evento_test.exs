@@ -1,12 +1,19 @@
 defmodule Nfse.PedidoEventoTest do
   use ExUnit.Case, async: true
 
-  alias Nfse.{Error, PedidoEvento, SefinStub, Signature, Xmllint}
+  alias Nfse.{Certificate, Client, Error, PedidoEvento, SefinStub, Signature, Xmllint}
 
   @nfse "http://www.sped.fazenda.gov.br/nfse"
   @key SefinStub.access_key()
 
   setup context, do: %{client: SefinStub.client(context.test)}
+
+  defp client_with(fixture) do
+    pfx = File.read!(Path.expand("../fixtures/certificates/#{fixture}", __DIR__))
+    {:ok, certificate} = Certificate.from_pfx(pfx, "senha-de-teste")
+    {:ok, client} = Client.new(certificate: certificate, environment: :restricted)
+    client
+  end
 
   defp cancellation(overrides \\ %{}) do
     Map.merge(
@@ -63,6 +70,27 @@ defmodule Nfse.PedidoEventoTest do
     assert stamped =~ ~r/<dhEvento>\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+00:00<\/dhEvento>/
   end
 
+  test "keeps the CNPJ author the caller gives, such as a branch of the certificate root",
+       %{client: client} do
+    assert {:ok, %{xml: xml}} =
+             PedidoEvento.build(cancellation(%{cnpj_autor: "11222333000262"}), client)
+
+    assert xml =~ "<CNPJAutor>11222333000262</CNPJAutor>"
+    refute xml =~ client.certificate.cnpj
+  end
+
+  test "takes the CPF author from a person certificate" do
+    assert {:ok, %{xml: xml}} = PedidoEvento.build(cancellation(), client_with("cpf.pfx"))
+
+    assert xml =~ "<CPFAutor>52998224725</CPFAutor>"
+    refute xml =~ "CNPJAutor"
+  end
+
+  test "refuses a request without an author when the certificate carries no CNPJ or CPF" do
+    assert {:error, %Error{kind: :validation, details: [%{error: :choice}]}} =
+             PedidoEvento.build(cancellation(), client_with("outside_icp.pfx"))
+  end
+
   test "derives the event type from the filled element", %{client: client} do
     rejection = %{e203206: %{x_desc: "Manifestação de NFS-e - Rejeição do Tomador", c_motivo: 3}}
 
@@ -79,6 +107,11 @@ defmodule Nfse.PedidoEventoTest do
              PedidoEvento.build(both, client)
 
     assert Enum.any?(details, &(&1.error == :choice))
+  end
+
+  test "refuses a request without any event element", %{client: client} do
+    assert {:error, %Error{kind: :validation, details: [%{error: :choice}]}} =
+             PedidoEvento.build(Map.delete(cancellation(), :e101101), client)
   end
 
   test "refuses a cancellation reason shorter than 15 characters before the network",
