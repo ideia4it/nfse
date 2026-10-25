@@ -14,7 +14,7 @@ mix precommit      # compile --warnings-as-errors + format + credo --strict + te
 - Toda função pública devolve `{:ok, _}` ou `{:error, %Nfse.Error{}}`, exceto `stream_distribution/2`, que levanta `Nfse.Error`
 - Sem `Application`, sem processo e sem `Application.get_env`: tudo passa por `%Nfse.Client{}`
 - Dependências de runtime: só `req`, `decimal` e `saxy`
-- Nunca edite `lib/nfse/schema/`: rode `mix nfse.gen`
+- Nunca edite `lib/nfse/schema/v1_00/` nem `lib/nfse/schema/v1_01/`: rode `mix nfse.gen`
 - Nunca edite `priv/xsd/`
 - HTTP nos testes só por `Req.Test`, passado em `req_options: [plug: {Req.Test, stub_name}]`, nunca Mimic
 - Teste é jornada, um por fluxo, com nome em inglês no estilo BDD; testes de um módulo ficam no arquivo de teste dele
