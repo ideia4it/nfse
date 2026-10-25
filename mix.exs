@@ -71,6 +71,7 @@ defmodule Nfse.MixProject do
         "Leiaute 1.01": ~r/^Nfse\.Schema\.V1_01\./,
         Internos: [
           Nfse.Signature,
+          Nfse.Identifiers,
           Nfse.Schema.Runtime,
           Nfse.Schema.Xml,
           Nfse.Schema.SimpleType,

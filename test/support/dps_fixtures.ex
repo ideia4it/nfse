@@ -31,4 +31,7 @@ defmodule Nfse.DpsFixtures do
       }
     }
   end
+
+  @doc "A mesma DPS como quem emite a preenche: sem `Id` nem `tpAmb`, que `Nfse.DPS` calcula."
+  def studio_ana_dps, do: Map.drop(studio_ana_inf_dps(), [:id, :tp_amb])
 end
