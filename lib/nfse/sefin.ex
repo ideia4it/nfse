@@ -8,6 +8,10 @@ defmodule Nfse.Sefin do
   se confere com `dps_issued?/2` e `fetch_access_key/2` antes de qualquer reenvio. Todo erro de
   `issue/2` posterior à montagem da DPS carrega o `dps_id`.
 
+  Uma resposta 201 cuja NFS-e não passa na leitura estrita volta como `:unexpected`, nunca como
+  `:validation`: a nota pode ter sido emitida, e `details` traz `access_key`, `xml` e o erro da
+  leitura em `reason`.
+
   A documentação da Sefin descreve a resposta de sucesso em camelCase, mas os erros chegam em
   PascalCase; os campos de sucesso são lidos nas duas grafias.
 
@@ -182,7 +186,8 @@ defmodule Nfse.Sefin do
 
   defp read_issued({:ok, %{body: body}}, dps_id) do
     with {:ok, access_key} <- required(body, "chaveAcesso"),
-         {:ok, xml, nfse} <- read_nfse(body) do
+         {:ok, xml} <- nfse_xml(body),
+         {:ok, nfse} <- decode_issued(xml, access_key) do
       {:ok,
        %Issued{
          access_key: access_key,
@@ -210,10 +215,28 @@ defmodule Nfse.Sefin do
   defp default_ver_aplic, do: "nfse-" <> to_string(Application.spec(:nfse, :vsn))
 
   defp read_nfse(body) do
-    with {:ok, packed} <- required(body, "nfseXmlGZipB64"),
-         {:ok, xml} <- Codec.unpack(packed),
+    with {:ok, xml} <- nfse_xml(body),
          {:ok, nfse} <- decode_nfse(xml) do
       {:ok, xml, nfse}
+    end
+  end
+
+  defp nfse_xml(body) do
+    with {:ok, packed} <- required(body, "nfseXmlGZipB64") do
+      Codec.unpack(packed)
+    end
+  end
+
+  # Num 201 a nota já existe: um XML que não passa na leitura estrita é problema da resposta, nunca
+  # dos dados de quem emitiu, e a chave e o XML precisam chegar a quem vai guardá-los.
+  defp decode_issued(xml, access_key) do
+    case decode_nfse(xml) do
+      {:ok, nfse} ->
+        {:ok, nfse}
+
+      {:error, reason} ->
+        {:error,
+         %Error{kind: :unexpected, details: %{access_key: access_key, xml: xml, reason: reason}}}
     end
   end
 

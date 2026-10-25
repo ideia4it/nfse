@@ -107,6 +107,27 @@ defmodule Nfse.SefinTest do
              Nfse.issue(client(context), dps())
   end
 
+  test "hands back the key and the XML of an issued invoice that breaks the schema", context do
+    key = SefinStub.access_key()
+
+    xml =
+      "1.01"
+      |> SefinStub.fixture_xml()
+      |> String.replace("<nDFSe>42</nDFSe>", "<nDFSe>0</nDFSe>")
+
+    Req.Test.stub(context.test, fn conn ->
+      conn
+      |> Plug.Conn.put_status(201)
+      |> Req.Test.json(%{"chaveAcesso" => key, "nfseXmlGZipB64" => Codec.pack(xml)})
+    end)
+
+    assert {:error, %Error{kind: :unexpected, dps_id: @dps_id, details: details}} =
+             Nfse.issue(client(context), dps())
+
+    assert %{access_key: ^key, xml: ^xml, reason: %Error{kind: :validation} = reason} = details
+    assert reason.details == [%{path: "inf_nfse.n_dfse", error: :pattern}]
+  end
+
   test "tells whether a DPS became an invoice", context do
     Req.Test.stub(context.test, fn conn ->
       assert conn.method == "HEAD"
