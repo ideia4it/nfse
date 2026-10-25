@@ -3,8 +3,8 @@ defmodule Nfse.Distribution do
   Um lote da distribuição do ADN, devolvido por `Nfse.distribution/3`.
 
   `status` é `:documents` quando o lote traz documentos e `:no_documents` quando a fila acabou.
-  `next_nsu` é o maior NSU do lote, ou o NSU pedido quando o lote vem vazio; é o ponto de partida
-  da próxima chamada.
+  `next_nsu` é o maior NSU inteiro do lote, ou o NSU pedido quando o lote vem vazio; é o ponto de
+  partida da próxima chamada. Num lote `:documents`, ele é sempre maior que o NSU pedido.
   """
 
   @enforce_keys [:status, :next_nsu]

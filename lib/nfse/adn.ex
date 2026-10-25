@@ -14,7 +14,12 @@ defmodule Nfse.Adn do
   do corpo: `REJEICAO` vira `:rejected`, com as mensagens de `Erros`.
 
   Um documento do lote que não se consegue ler não derruba o lote nem trava o NSU: ele volta com
-  `document: nil` e o motivo em `error` (veja `Nfse.DistributedDocument`).
+  `document: nil` e o motivo em `error` (veja `Nfse.DistributedDocument`). Um item cujo NSU não é
+  inteiro volta do mesmo jeito, com `error` em `{:invalid_nsu, valor}`, e fica fora do `next_nsu`.
+
+  Um lote `DOCUMENTOS_LOCALIZADOS` sem nenhum NSU inteiro acima do pedido volta como
+  `%Nfse.Error{kind: :unexpected, details: {:stalled_nsu, nsu}}`: seguir o `next_nsu` dele pediria
+  o mesmo lote para sempre. `stream_distribution/3` levanta esse erro como qualquer outro.
 
   As chaves da resposta chegam em PascalCase (medido em produção em 25/10/2026) e a leitura
   aceita também camelCase.
@@ -45,6 +50,7 @@ defmodule Nfse.Adn do
     client
     |> Client.request(:adn, :get, "/contribuintes/DFe/#{nsu}", params: params, accept: [404])
     |> read_distribution(nsu)
+    |> ensure_progress(nsu)
   end
 
   @doc false
@@ -80,11 +86,17 @@ defmodule Nfse.Adn do
   defp next_batch(client, nsu, opts) do
     case distribution(client, nsu, opts) do
       {:ok, %Distribution{status: :no_documents}} -> {:halt, :done}
-      {:ok, %Distribution{documents: documents, next_nsu: ^nsu}} -> {documents, :done}
       {:ok, %Distribution{documents: documents, next_nsu: next_nsu}} -> {documents, next_nsu}
       {:error, %Error{} = error} -> raise error
     end
   end
+
+  # Um lote com documentos que não passa do NSU pedido faria quem segue o next_nsu pedir o mesmo
+  # lote para sempre.
+  defp ensure_progress({:ok, %Distribution{status: :documents, next_nsu: nsu}}, nsu),
+    do: {:error, %Error{kind: :unexpected, details: {:stalled_nsu, nsu}}}
+
+  defp ensure_progress(result, _requested_nsu), do: result
 
   defp read_distribution({:ok, %{status: http_status, body: body}}, requested_nsu) do
     case {Response.field(body, "statusProcessamento"), http_status} do
@@ -114,7 +126,8 @@ defmodule Nfse.Adn do
     %Distribution{
       status: status,
       documents: documents,
-      next_nsu: Enum.max([requested_nsu | Enum.map(documents, & &1.nsu)]),
+      next_nsu:
+        Enum.max([requested_nsu | for(%{nsu: nsu} <- documents, valid_nsu?(nsu), do: nsu)]),
       alerts: body |> Response.field("alertas") |> List.wrap() |> Enum.map(&Client.message/1)
     }
   end
@@ -131,6 +144,21 @@ defmodule Nfse.Adn do
       generated_at: item |> Response.field("dataHoraGeracao") |> parse_datetime()
     }
     |> read_content(packed)
+    |> check_nsu()
+  end
+
+  defp valid_nsu?(nsu), do: is_integer(nsu) and nsu >= 0
+
+  # Um NSU que não é inteiro não serve de cursor. O item fica no lote como ilegível, para quem
+  # importa guardar o XML, e fora do next_nsu, para a próxima chamada não levantar.
+  defp check_nsu(%DistributedDocument{nsu: nsu} = document) do
+    if valid_nsu?(nsu),
+      do: document,
+      else: %{
+        document
+        | document: nil,
+          error: %Error{kind: :unexpected, details: {:invalid_nsu, nsu}}
+      }
   end
 
   defp read_content(%DistributedDocument{type: type} = document, packed)

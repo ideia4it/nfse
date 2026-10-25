@@ -84,7 +84,8 @@ defmodule Nfse do
 
   Opção: `:cnpj_consulta`, para consultar outro CNPJ da mesma raiz. O `next_nsu` do resultado é o
   ponto de partida da próxima chamada. O fim da fila é `{:ok, %Nfse.Distribution{status:
-  :no_documents}}`, nunca erro. Veja `Nfse.Adn`.
+  :no_documents}}`, nunca erro. Um lote com documentos que não avança o NSU volta como
+  `{:error, %Nfse.Error{kind: :unexpected, details: {:stalled_nsu, nsu}}}`. Veja `Nfse.Adn`.
   """
   @spec distribution(Nfse.Client.t(), non_neg_integer(), keyword()) ::
           {:ok, Nfse.Distribution.t()} | {:error, Nfse.Error.t()}

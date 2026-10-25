@@ -229,7 +229,7 @@ defmodule Nfse.AdnTest do
     assert calls.() == 1
   end
 
-  test "stops when the queue does not move forward", context do
+  test "refuses a batch that does not move past the requested NSU", context do
     {count, calls} = SefinStub.count_calls()
 
     Req.Test.stub(context.test, fn conn ->
@@ -237,8 +237,31 @@ defmodule Nfse.AdnTest do
       Req.Test.json(conn, located([invoice_item(5)]))
     end)
 
-    assert [%{nsu: 5}] = context |> client() |> Nfse.stream_distribution(5) |> Enum.to_list()
-    assert calls.() == 1
+    assert {:error, %Error{kind: :unexpected, details: {:stalled_nsu, 5}}} =
+             Nfse.distribution(client(context), 5)
+
+    assert_raise Error, fn ->
+      context |> client() |> Nfse.stream_distribution(5) |> Enum.to_list()
+    end
+
+    assert calls.() == 2
+  end
+
+  test "keeps an item whose NSU is not an integer and leaves it out of the cursor", context do
+    Req.Test.stub(context.test, fn conn ->
+      Req.Test.json(conn, located([invoice_item(1), invoice_item("12"), invoice_item(nil)]))
+    end)
+
+    assert {:ok, %Distribution{next_nsu: 1, documents: [good, text_nsu, missing_nsu]}} =
+             Nfse.distribution(client(context), 0)
+
+    assert %{nsu: 1, document: %TCNFSe{}, error: nil} = good
+    xml = SefinStub.fixture_xml("1.00")
+
+    assert %{nsu: "12", xml: ^xml, document: nil, error: %Error{details: {:invalid_nsu, "12"}}} =
+             text_nsu
+
+    assert %{nsu: nil, document: nil, error: %Error{details: {:invalid_nsu, nil}}} = missing_nsu
   end
 
   test "raises when a batch fails in the middle of the stream", context do

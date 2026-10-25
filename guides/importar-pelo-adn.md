@@ -47,6 +47,8 @@ end
 
 Grave o cursor só depois de gravar o lote. Se o processo cair no meio, o lote é lido de novo e a gravação precisa ser idempotente: use o NSU ou a chave de acesso como chave única.
 
+O `import_all` termina sempre: um lote `:documents` traz um `next_nsu` maior que o cursor pedido. Se o ADN mandar documentos sem nenhum NSU acima do cursor, a biblioteca devolve `{:error, %Nfse.Error{kind: :unexpected, details: {:stalled_nsu, cursor}}}` em vez de um `next_nsu` igual ao cursor, que faria o laço pedir o mesmo lote para sempre. Trate esse erro como os outros: pare, registre e tente de novo mais tarde a partir do mesmo cursor.
+
 ## O fim da fila
 
 Quando não há mais nada depois do NSU, o ADN responde `NENHUM_DOCUMENTO_LOCALIZADO`, às vezes com status 404. A biblioteca devolve isso como sucesso, `{:ok, %Nfse.Distribution{status: :no_documents, documents: []}}`, e nunca como erro. Agende a próxima rodada para mais tarde, a partir do mesmo cursor.
@@ -62,15 +64,15 @@ client
 |> Enum.each(&MeuApp.Notas.import/1)
 ```
 
-Ao contrário das outras funções, o stream **levanta** `Nfse.Error` quando um lote falha. Proteja o laço com `try`/`rescue` se o processo não puder cair e, depois de uma falha, retome pelo último cursor que você gravou. Como o stream entrega documentos e não lotes, o cursor a guardar é o maior `nsu` já tratado:
+Ao contrário das outras funções, o stream **levanta** `Nfse.Error` quando um lote falha, inclusive no `:stalled_nsu`. Proteja o laço com `try`/`rescue` se o processo não puder cair e, depois de uma falha, retome pelo último cursor que você gravou. Como o stream entrega documentos e não lotes, o cursor a guardar é o maior `nsu` inteiro já tratado:
 
 ```elixir
 last_nsu =
   client
   |> Nfse.stream_distribution(cursor)
-  |> Enum.reduce(cursor, fn document, _last_nsu ->
+  |> Enum.reduce(cursor, fn document, last_nsu ->
     MeuApp.Notas.import(document)
-    document.nsu
+    if is_integer(document.nsu), do: max(document.nsu, last_nsu), else: last_nsu
   end)
 ```
 
@@ -80,7 +82,7 @@ last_nsu =
 
 | Campo | Conteúdo |
 |---|---|
-| `nsu` | posição na fila |
+| `nsu` | posição na fila; um valor que não é inteiro vem como o ADN o mandou, com `error` em `{:invalid_nsu, valor}` |
 | `access_key` | chave de acesso da nota |
 | `type` | `:nfse`, `:evento`, `:dps`, `:pedido_registro_evento`, `:cnc`, `:nenhum` ou `:unknown` |
 | `event_type` | como `"CANCELAMENTO"`; `nil` nas notas |
@@ -91,7 +93,7 @@ last_nsu =
 
 ## Documento ilegível não derruba o lote
 
-Um documento que não se consegue ler (base64 ou gzip inválido, versão desconhecida, XML malformado) volta com `document: nil`, o motivo em `error` e o `xml` bruto quando houve algum. O lote continua e o NSU avança, então uma nota estranha não trava a importação. Guarde o `xml` bruto e o `nsu` para investigar depois:
+Um documento que não se consegue ler (base64 ou gzip inválido, versão desconhecida, XML malformado, NSU que não é inteiro) volta com `document: nil`, o motivo em `error` e o `xml` bruto quando houve algum. O lote continua e o NSU avança, então uma nota estranha não trava a importação. Um NSU que não é inteiro fica fora do `next_nsu`. Guarde o `xml` bruto e o `nsu` para investigar depois:
 
 ```elixir
 for %Nfse.DistributedDocument{error: %Nfse.Error{} = error} = document <- batch.documents do

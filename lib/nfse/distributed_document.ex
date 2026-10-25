@@ -11,6 +11,8 @@ defmodule Nfse.DistributedDocument do
 
   Um documento ilegível (base64 ou gzip inválido, versão desconhecida, XML malformado) não derruba
   o lote: `document` fica `nil`, `xml` guarda o texto quando houve algum e `error` traz a falha.
+  Um NSU que não é inteiro tem o mesmo tratamento: `nsu` guarda o valor como o ADN o mandou e
+  `error.details` é `{:invalid_nsu, valor}`.
 
   `generated_at` é um `DateTime` quando `DataHoraGeracao` traz o deslocamento de fuso e um
   `NaiveDateTime` quando não traz, sem adivinhar o fuso. É `nil` quando o campo falta ou não se lê.
@@ -31,7 +33,7 @@ defmodule Nfse.DistributedDocument do
   @type type :: :nfse | :evento | :dps | :pedido_registro_evento | :cnc | :nenhum | :unknown
 
   @type t :: %__MODULE__{
-          nsu: non_neg_integer(),
+          nsu: non_neg_integer() | term(),
           access_key: String.t() | nil,
           type: type(),
           event_type: String.t() | nil,
