@@ -164,6 +164,12 @@ defmodule Nfse.ClientTest do
     client(stub_name, req_options: [retry_delay: 0, retry_log_level: false] ++ extra_req_options)
   end
 
+  # O lugar onde Req.Test.transport_error/2 deixa a falha, usado para uma que não é de transporte.
+  defp http_error(conn, protocol, reason) do
+    exception = Req.HTTPError.exception(protocol: protocol, reason: reason)
+    Plug.Conn.put_private(conn, :req_test_exception, exception)
+  end
+
   test "retries a write only when the request never left the machine" do
     for {reason, stub_name} <- [econnrefused: :write_refused, nxdomain: :write_nxdomain] do
       {counter, stub} = transport_failures_then(reason, 201)
@@ -174,6 +180,24 @@ defmodule Nfse.ClientTest do
 
       assert :counters.get(counter, 1) == 2
     end
+  end
+
+  test "retries a write that the HTTP/2 pool refused before transmitting it" do
+    stub_name = :write_http2_refused
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub_name, fn conn ->
+      count.()
+
+      if :counters.get(counter, 1) == 1,
+        do: http_error(conn, :http2, :unprocessed),
+        else: conn |> Plug.Conn.put_status(201) |> Req.Test.json(%{})
+    end)
+
+    assert {:ok, %{status: 201}} =
+             Client.request(fast_client(stub_name), :sefin, :post, "/nfse", json: %{})
+
+    assert :counters.get(counter, 1) == 2
   end
 
   test "sends a write once when the outcome is ambiguous" do
@@ -217,6 +241,33 @@ defmodule Nfse.ClientTest do
              Client.request(fast_client(stub_name), :sefin, :get, "/nfse/1")
 
     assert :counters.get(counter, 1) == 2
+  end
+
+  test "retries a read that timed out or whose connection closed" do
+    for {reason, stub_name} <- [timeout: :read_timeout, closed: :read_closed] do
+      {counter, stub} = transport_failures_then(reason, 200)
+      Req.Test.stub(stub_name, stub)
+
+      assert {:ok, %{status: 200}} =
+               Client.request(fast_client(stub_name), :sefin, :get, "/nfse/1")
+
+      assert :counters.get(counter, 1) == 2
+    end
+  end
+
+  test "does not retry a read whose answer broke the HTTP protocol" do
+    stub_name = :read_protocol_error
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub_name, fn conn ->
+      count.()
+      http_error(conn, :http1, :invalid_status_line)
+    end)
+
+    assert {:error, %Error{kind: :transport, details: %Req.HTTPError{protocol: :http1}}} =
+             Client.request(fast_client(stub_name), :sefin, :get, "/nfse/1")
+
+    assert :counters.get(counter, 1) == 1
   end
 
   test "retries a read on 503" do
@@ -268,6 +319,21 @@ defmodule Nfse.ClientTest do
     assert camel == [%{code: "E0002", description: "z", complement: nil}]
   end
 
+  test "reads a single PascalCase Erro the same way as the camelCase erro" do
+    stub = :pascal_single_error
+
+    Req.Test.stub(stub, fn conn ->
+      conn
+      |> Plug.Conn.put_status(400)
+      |> Req.Test.json(%{"Erro" => %{"Codigo" => "E1235", "Descricao" => "NFS-e já cancelada"}})
+    end)
+
+    assert {:error, %Error{kind: :rejected, messages: messages}} =
+             Client.request(client(stub), :sefin, :post, "/nfse/1/eventos", json: %{})
+
+    assert messages == [%{code: "E1235", description: "NFS-e já cancelada", complement: nil}]
+  end
+
   test "reads a top-level mensagem when the body has no error list" do
     assert Client.messages(%{"aliquotas" => nil, "mensagem" => "Alíquotas não encontradas."}) ==
              [%{code: nil, description: "Alíquotas não encontradas.", complement: nil}]
@@ -300,6 +366,21 @@ defmodule Nfse.ClientTest do
 
     assert {:error, %Error{kind: :timeout}} = Client.request(client, :sefin, :get, "/slow")
     assert {:error, %Error{kind: :transport}} = Client.request(client, :sefin, :get, "/down")
+  end
+
+  test "reports a redirect as unexpected instead of following it" do
+    stub = :redirect
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub, fn conn ->
+      count.()
+      Req.Test.redirect(conn, external: "https://outro-host.example/nfse/1")
+    end)
+
+    assert {:error, %Error{kind: :unexpected, status: 302}} =
+             Client.request(client(stub), :sefin, :get, "/nfse/1")
+
+    assert :counters.get(counter, 1) == 1
   end
 
   test "accepts the statuses the caller lists instead of failing" do
