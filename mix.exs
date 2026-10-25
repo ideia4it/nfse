@@ -35,7 +35,7 @@ defmodule Nfse.MixProject do
   defp deps do
     [
       {:req, "~> 0.5"},
-      {:decimal, "~> 2.0"},
+      {:decimal, "~> 2.0 or ~> 3.0"},
       {:saxy, "~> 1.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
