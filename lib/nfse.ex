@@ -3,7 +3,7 @@ defmodule Nfse do
   Cliente Elixir para a NFS-e Nacional.
   """
 
-  alias Nfse.{Adn, Sefin}
+  alias Nfse.{Adn, Parametros, Sefin}
 
   @doc """
   Emite a NFS-e a partir de uma DPS, de forma síncrona.
@@ -87,4 +87,37 @@ defmodule Nfse do
   @spec events(Nfse.Client.t(), String.t()) ::
           {:ok, [Nfse.DistributedDocument.t()]} | {:error, Nfse.Error.t()}
   defdelegate events(client, access_key), to: Adn
+
+  @doc "Lê os parâmetros do convênio do município (código IBGE de sete dígitos) com o ADN."
+  @spec municipal_agreement(Nfse.Client.t(), String.t()) ::
+          {:ok, map()} | {:error, Nfse.Error.t()}
+  defdelegate municipal_agreement(client, c_mun), to: Parametros
+
+  @doc """
+  Lê a alíquota de ISS de um serviço no município, na competência (um `Date`). O código do
+  serviço aceita os nove dígitos com ou sem pontos. Veja `Nfse.Parametros`.
+  """
+  @spec rate(Nfse.Client.t(), String.t(), String.t(), Date.t()) ::
+          {:ok, map()} | {:error, Nfse.Error.t()}
+  defdelegate rate(client, c_mun, c_serv, competencia), to: Parametros
+
+  @doc "Lê o histórico de alíquotas de ISS de um serviço no município."
+  @spec rate_history(Nfse.Client.t(), String.t(), String.t()) ::
+          {:ok, map()} | {:error, Nfse.Error.t()}
+  defdelegate rate_history(client, c_mun, c_serv), to: Parametros
+
+  @doc "Lê os regimes especiais de um serviço no município, na competência."
+  @spec special_regimes(Nfse.Client.t(), String.t(), String.t(), Date.t()) ::
+          {:ok, map()} | {:error, Nfse.Error.t()}
+  defdelegate special_regimes(client, c_mun, c_serv, competencia), to: Parametros
+
+  @doc "Lê os parâmetros de retenção do município na competência."
+  @spec withholdings(Nfse.Client.t(), String.t(), Date.t()) ::
+          {:ok, map()} | {:error, Nfse.Error.t()}
+  defdelegate withholdings(client, c_mun, competencia), to: Parametros
+
+  @doc "Lê um benefício municipal pelo número, na competência."
+  @spec benefit(Nfse.Client.t(), String.t(), String.t() | integer(), Date.t()) ::
+          {:ok, map()} | {:error, Nfse.Error.t()}
+  defdelegate benefit(client, c_mun, n_beneficio, competencia), to: Parametros
 end
