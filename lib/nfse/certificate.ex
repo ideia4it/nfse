@@ -85,6 +85,7 @@ defmodule Nfse.Certificate do
 
   @default_timeout :timer.seconds(15)
 
+  @derive {Inspect, only: [:cnpj, :cpf, :not_before, :not_after, :client_auth]}
   @enforce_keys [:certificate, :key, :chain, :not_before, :not_after, :client_auth]
   defstruct [:certificate, :key, :chain, :cnpj, :cpf, :not_before, :not_after, :client_auth]
 

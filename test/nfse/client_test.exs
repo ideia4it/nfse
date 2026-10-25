@@ -39,6 +39,19 @@ defmodule Nfse.ClientTest do
              Client.new(certificate: certificate("no_client_auth.pfx"), environment: :production)
   end
 
+  test "never shows the private key or the certificate when inspected" do
+    certificate = certificate("modern.pfx")
+    {:ok, client} = Client.new(certificate: certificate, environment: :production)
+    {:RSAPrivateKey, key_der} = certificate.key
+
+    for subject <- [certificate, client], text = inspect(subject, limit: :infinity) do
+      refute text =~ "RSAPrivateKey"
+      refute text =~ inspect(key_der, limit: :infinity)
+      refute text =~ inspect(certificate.certificate, limit: :infinity)
+      refute text =~ Base.encode64(certificate.certificate)
+    end
+  end
+
   test "builds a client with defaults and maps the environment to tpAmb" do
     assert {:ok, %Client{receive_timeout: 60_000, req_options: []} = production} =
              Client.new(certificate: certificate("modern.pfx"), environment: :production)
