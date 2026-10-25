@@ -60,7 +60,7 @@ defmodule Nfse.MixProject do
         "compile --warnings-as-errors",
         "format --check-formatted",
         "credo --strict",
-        "test"
+        "test --cover"
       ]
     ]
   end
