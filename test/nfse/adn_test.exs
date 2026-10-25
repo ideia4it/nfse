@@ -76,6 +76,18 @@ defmodule Nfse.AdnTest do
              Nfse.distribution(client(context), 0)
   end
 
+  test "keeps a document whose generation date is not ISO 8601, without the date", context do
+    Req.Test.stub(context.test, fn conn ->
+      item = Map.put(invoice_item(1), "DataHoraGeracao", "23/01/2026 10:00:00")
+      Req.Test.json(conn, located([item]))
+    end)
+
+    assert {:ok, %Distribution{next_nsu: 1, documents: [document]}} =
+             Nfse.distribution(client(context), 0)
+
+    assert %DistributedDocument{document: %TCNFSe{}, error: nil, generated_at: nil} = document
+  end
+
   test "reads camelCase keys and carries the alerts", context do
     Req.Test.stub(context.test, fn conn ->
       Req.Test.json(conn, %{
@@ -115,6 +127,27 @@ defmodule Nfse.AdnTest do
     end)
 
     assert {:error, %Error{kind: :not_found, status: 404, messages: [%{code: "E404"}]}} =
+             Nfse.distribution(client(context), 0)
+  end
+
+  test "reports a 404 whose body is not the ADN JSON as not found", context do
+    Req.Test.stub(context.test, fn conn ->
+      conn
+      |> Plug.Conn.put_resp_content_type("text/html")
+      |> Plug.Conn.send_resp(404, "<html><body>Not Found</body></html>")
+    end)
+
+    assert {:error, %Error{kind: :not_found, status: 404, messages: []}} =
+             Nfse.distribution(client(context), 0)
+  end
+
+  test "reports a processing status it does not know as unexpected", context do
+    Req.Test.stub(context.test, fn conn ->
+      Req.Test.json(conn, %{"StatusProcessamento" => "EM_PROCESSAMENTO", "LoteDFe" => []})
+    end)
+
+    assert {:error,
+            %Error{kind: :unexpected, status: 200, details: {:unknown_status, "EM_PROCESSAMENTO"}}} =
              Nfse.distribution(client(context), 0)
   end
 
