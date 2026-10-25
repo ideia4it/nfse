@@ -50,6 +50,21 @@ defmodule Nfse.DPSTest do
              DPS.build(issued_by_intermediary, client)
   end
 
+  test "builds the id from the CPF of a freelancer who issues with a person certificate" do
+    pfx = File.read!(Path.expand("../fixtures/certificates/cpf.pfx", __DIR__))
+    {:ok, certificate} = Certificate.from_pfx(pfx, "senha-de-teste")
+    {:ok, freelancer} = Client.new(certificate: certificate, environment: :restricted)
+
+    issued_by_freelancer =
+      Map.merge(studio_ana_dps(), %{
+        prest: %{cpf: "52998224725", reg_trib: studio_ana_dps().prest.reg_trib},
+        toma: %{cnpj: "11222333000181", x_nome: "Studio Ana"}
+      })
+
+    assert {:ok, %{id: id}} = DPS.build(issued_by_freelancer, freelancer)
+    assert id == "DPS2927408" <> "1" <> "00052998224725" <> "00001" <> "000000000000042"
+  end
+
   test "refuses an issuer without the CNPJ or CPF the id needs", %{client: client} do
     without_taker = studio_ana_dps() |> Map.put(:tp_emit, 2) |> Map.delete(:toma)
 
