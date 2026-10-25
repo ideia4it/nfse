@@ -3,7 +3,7 @@ defmodule Nfse do
   Cliente Elixir para a NFS-e Nacional.
   """
 
-  alias Nfse.Sefin
+  alias Nfse.{Adn, Sefin}
 
   @doc """
   Emite a NFS-e a partir de uma DPS, de forma síncrona.
@@ -60,4 +60,31 @@ defmodule Nfse do
   @spec fetch_event(Nfse.Client.t(), String.t(), String.t(), pos_integer()) ::
           {:ok, Nfse.Event.t()} | {:error, Nfse.Error.t()}
   defdelegate fetch_event(client, access_key, event_type, sequence), to: Sefin
+
+  @doc """
+  Lê um lote da distribuição do ADN: os documentos fiscais em que o CNPJ do certificado aparece,
+  depois do `nsu` informado, em até 50 por chamada.
+
+  Opção: `:cnpj_consulta`, para consultar outro CNPJ da mesma raiz. O `next_nsu` do resultado é o
+  ponto de partida da próxima chamada. O fim da fila é `{:ok, %Nfse.Distribution{status:
+  :no_documents}}`, nunca erro. Veja `Nfse.Adn`.
+  """
+  @spec distribution(Nfse.Client.t(), non_neg_integer(), keyword()) ::
+          {:ok, Nfse.Distribution.t()} | {:error, Nfse.Error.t()}
+  defdelegate distribution(client, nsu, opts \\ []), to: Adn
+
+  @doc """
+  Percorre a distribuição do ADN, lote a lote, a partir do `nsu`, e entrega os documentos um a um
+  até o fim da fila. Aceita as mesmas opções de `distribution/3`.
+
+  Diferente das demais funções, levanta `Nfse.Error` quando um lote falha.
+  """
+  @spec stream_distribution(Nfse.Client.t(), non_neg_integer(), keyword()) ::
+          Enumerable.t(Nfse.DistributedDocument.t())
+  defdelegate stream_distribution(client, nsu, opts \\ []), to: Adn
+
+  @doc "Lista os documentos de evento de uma NFS-e (cancelamentos, manifestações) pelo ADN."
+  @spec events(Nfse.Client.t(), String.t()) ::
+          {:ok, [Nfse.DistributedDocument.t()]} | {:error, Nfse.Error.t()}
+  defdelegate events(client, access_key), to: Adn
 end

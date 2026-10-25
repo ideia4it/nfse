@@ -129,6 +129,12 @@ defmodule Nfse.Sefin do
   @spec decode_nfse(binary()) :: {:ok, struct()} | {:error, Error.t()}
   def decode_nfse(xml), do: decode_root(xml, :nfse)
 
+  @doc """
+  Lê o XML de um evento na versão que o atributo `versao` da raiz indica.
+  """
+  @spec decode_evento(binary()) :: {:ok, struct()} | {:error, Error.t()}
+  def decode_evento(xml), do: decode_root(xml, :evento)
+
   defp decode_root(xml, root) do
     case Saxy.SimpleForm.parse_string(xml) do
       {:ok, {_tag, attributes, _content} = element} ->
@@ -163,7 +169,7 @@ defmodule Nfse.Sefin do
   defp read_event({:ok, %{body: body}}, access_key) do
     with {:ok, packed} <- required(body, "eventoXmlGZipB64"),
          {:ok, xml} <- Codec.unpack(packed),
-         {:ok, evento} <- decode_root(xml, :evento) do
+         {:ok, evento} <- decode_evento(xml) do
       {:ok, %Event{access_key: access_key, evento: evento, xml: xml}}
     end
   end
