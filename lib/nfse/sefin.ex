@@ -261,8 +261,8 @@ defmodule Nfse.Sefin do
 
   defp event_reference_errors(access_key, event_type, sequence) do
     for {path, false, error} <- [
-          {"access_key", digits?(access_key, 50), :pattern},
-          {"tipo_evento", digits?(event_type, 6), :pattern},
+          {"access_key", digits?(access_key, 50), text_error(access_key)},
+          {"tipo_evento", digits?(event_type, 6), text_error(event_type)},
           {"n_seq_evento", is_integer(sequence) and sequence > 0, :type}
         ],
         do: %{path: path, error: error}
@@ -272,6 +272,9 @@ defmodule Nfse.Sefin do
     do: byte_size(value) == count and value =~ ~r/\A\d+\z/
 
   defp digits?(_value, _count), do: false
+
+  defp text_error(value) when is_binary(value), do: :pattern
+  defp text_error(_value), do: :type
 
   defp default_ver_aplic, do: "nfse-" <> to_string(Application.spec(:nfse, :vsn))
 

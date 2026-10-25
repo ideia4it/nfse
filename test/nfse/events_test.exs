@@ -130,11 +130,16 @@ defmodule Nfse.EventsTest do
              Nfse.fetch_event(client(context), @key, "101101", "1")
   end
 
-  test "refuses an event type given as a number before the network", context do
+  test "refuses a key or an event type given as a number before the network", context do
     Req.Test.stub(context.test, fn _conn -> flunk("the network must not be touched") end)
 
-    assert {:error, %Error{kind: :validation, details: [%{path: "tipo_evento", error: :pattern}]}} =
-             Nfse.fetch_event(client(context), @key, 101_101, 1)
+    assert {:error, %Error{kind: :validation, details: details}} =
+             Nfse.fetch_event(client(context), String.to_integer(@key), 101_101, 1)
+
+    assert details == [
+             %{path: "access_key", error: :type},
+             %{path: "tipo_evento", error: :type}
+           ]
   end
 
   test "fails when the success answer carries no event", context do
