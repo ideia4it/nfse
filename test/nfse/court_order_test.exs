@@ -154,6 +154,17 @@ defmodule Nfse.CourtOrderTest do
     end
   end
 
+  test "refuses an invoice without the embedded DPS or without its infDPS", context do
+    Req.Test.stub(context.test, fn _conn -> flunk("the network must not be touched") end)
+
+    assert {:error, %Error{kind: :validation, details: [%{path: "dps", error: :required}]}} =
+             Nfse.issue_by_court_order(client(context), Map.delete(court_order_nfse(), :dps))
+
+    assert {:error,
+            %Error{kind: :validation, details: [%{path: "dps.inf_dps", error: :required}]}} =
+             Nfse.issue_by_court_order(client(context), Map.put(court_order_nfse(), :dps, %{}))
+  end
+
   test "refuses an embedded DPS whose issuer has no CNPJ or CPF", context do
     without_taker =
       court_order_nfse()
