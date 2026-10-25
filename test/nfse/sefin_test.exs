@@ -98,6 +98,23 @@ defmodule Nfse.SefinTest do
     assert calls.() == 1
   end
 
+  test "hands back an uncertain error with the dps_id when the issued answer is not JSON",
+       context do
+    Req.Test.stub(context.test, fn conn ->
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.send_resp(201, ~s({"chaveAcesso": "2222))
+    end)
+
+    assert {:error, %Error{kind: :unexpected, status: 201, dps_id: @dps_id} = error} =
+             Nfse.issue(client(context), dps())
+
+    assert %{access_key: nil, xml: nil, reason: %Error{details: {:invalid_json, _reason}}} =
+             error.details
+
+    assert Exception.message(error) =~ "Confira a DPS #{@dps_id} antes de reenviar."
+  end
+
   test "keeps the access key and the status when the issued XML cannot be unpacked", context do
     key = SefinStub.access_key()
 

@@ -100,6 +100,10 @@ defmodule Nfse.Client do
 
   Opções: `:json` (corpo), `:params` (query string) e `:accept`, uma lista de status que voltam
   como `{:ok, resp}` mesmo fora de 2xx, para APIs que respondem 404 com corpo em vez de erro.
+
+  Uma resposta que chegou com um JSON que não se decodifica não é falha de transporte: com status
+  2xx ou aceito, volta como `:unexpected` com o `status` e `details` em `{:invalid_json, exceção}`;
+  com outro status, volta pelo `kind` do status, sem mensagens.
   """
   @spec request(t(), service(), :get | :head | :post, String.t(), keyword()) ::
           {:ok, Req.Response.t()} | {:error, Error.t()}
@@ -108,7 +112,7 @@ defmodule Nfse.Client do
 
     client
     |> build_request(service, method, path, request_opts)
-    |> Req.request()
+    |> Req.Request.run_request()
     |> classify(accepted_statuses)
   end
 
@@ -190,7 +194,22 @@ defmodule Nfse.Client do
     |> Keyword.merge(client.req_options)
     |> enforce_write_retry(method)
     |> Req.new()
+    |> track_response_status()
   end
+
+  # A decodificação do corpo é o último passo do Req e, quando falha, devolve só a exceção. O
+  # status guardado aqui diz que a resposta chegou. Ele é apagado no começo de cada tentativa,
+  # senão um 503 reenviado grudaria na falha de transporte da tentativa seguinte.
+  defp track_response_status(request) do
+    request
+    |> Req.Request.prepend_request_steps(
+      forget_response_status: &Req.Request.put_private(&1, :nfse_response_status, nil)
+    )
+    |> Req.Request.prepend_response_steps(remember_response_status: &remember_response_status/1)
+  end
+
+  defp remember_response_status({request, response}),
+    do: {Req.Request.put_private(request, :nfse_response_status, response.status), response}
 
   # Sem `cacerts`: com `verify: :verify_peer`, padrão do Mint, ele lê `:public_key.cacerts_get()`
   # ao conectar. A lista aqui ficaria copiada em cada pool, que é um por certificado, e entraria no
@@ -218,19 +237,30 @@ defmodule Nfse.Client do
   defp transient_read?(%Req.TransportError{reason: reason}), do: reason in [:timeout, :closed]
   defp transient_read?(_outcome), do: false
 
-  defp classify({:ok, %Req.Response{status: status} = response}, accepted_statuses) do
-    if status in 200..299 or status in accepted_statuses do
-      {:ok, response}
-    else
-      {:error, failure(response)}
+  defp classify({_request, %Req.Response{status: status} = response}, accepted_statuses) do
+    if accepted?(status, accepted_statuses),
+      do: {:ok, response},
+      else: {:error, failure(response)}
+  end
+
+  defp classify({request, exception}, accepted_statuses) do
+    case Req.Request.get_private(request, :nfse_response_status) do
+      nil -> {:error, no_answer(exception)}
+      status -> {:error, unreadable_answer(status, exception, accepted_statuses)}
     end
   end
 
-  defp classify({:error, %Req.TransportError{reason: :timeout}}, _accepted_statuses),
-    do: {:error, %Error{kind: :timeout}}
+  defp accepted?(status, accepted_statuses), do: status in 200..299 or status in accepted_statuses
 
-  defp classify({:error, exception}, _accepted_statuses),
-    do: {:error, %Error{kind: :transport, details: exception}}
+  defp no_answer(%Req.TransportError{reason: :timeout}), do: %Error{kind: :timeout}
+  defp no_answer(exception), do: %Error{kind: :transport, details: exception}
+
+  # O status decide antes do corpo: um 503 com JSON quebrado ainda é falha do servidor.
+  defp unreadable_answer(status, exception, accepted_statuses) do
+    if accepted?(status, accepted_statuses),
+      do: %Error{kind: :unexpected, status: status, details: {:invalid_json, exception}},
+      else: %Error{kind: kind_for(status), status: status}
+  end
 
   defp failure(%Req.Response{status: status, body: body}) do
     %Error{kind: kind_for(status), status: status, messages: messages(body)}

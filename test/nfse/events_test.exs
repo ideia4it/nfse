@@ -149,6 +149,20 @@ defmodule Nfse.EventsTest do
              details
   end
 
+  test "hands back an uncertain error with the key when the event answer is not JSON", context do
+    Req.Test.stub(context.test, fn conn ->
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.send_resp(201, ~s({"eventoXmlGZipB64": ))
+    end)
+
+    assert {:error, %Error{kind: :unexpected, status: 201, details: details}} =
+             Nfse.cancel(client(context), @key, c_motivo: 1, x_motivo: @reason)
+
+    assert %{access_key: @key, xml: nil, reason: %Error{details: {:invalid_json, _reason}}} =
+             details
+  end
+
   test "hands back the XML of a registered event that breaks the schema", context do
     xml = String.replace(SefinStub.event_xml(@key), "<ambGer>2</ambGer>", "<ambGer>9</ambGer>")
 

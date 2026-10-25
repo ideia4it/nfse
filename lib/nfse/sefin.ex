@@ -90,7 +90,9 @@ defmodule Nfse.Sefin do
   @spec fetch(Client.t(), String.t()) :: {:ok, Document.t()} | {:error, Error.t()}
   def fetch(%Client{} = client, access_key) do
     with {:ok, response} <-
-           Client.request(client, :sefin, :get, "/nfse/" <> Client.path_segment(access_key)),
+           client
+           |> Client.request(:sefin, :get, "/nfse/" <> Client.path_segment(access_key))
+           |> with_unread_parts(access_key),
          {:ok, xml, nfse} <- read_document(response, {:ok, access_key}, :nfse) do
       {:ok, %Document{access_key: access_key, nfse: nfse, xml: xml}}
     end
@@ -127,6 +129,7 @@ defmodule Nfse.Sefin do
       |> Client.request(:sefin, :post, "/nfse/#{Client.path_segment(access_key)}/eventos",
         json: %{"pedidoRegistroEventoXmlGZipB64" => Codec.pack(xml)}
       )
+      |> with_unread_parts(access_key)
       |> read_event(access_key)
     end
   end
@@ -156,6 +159,7 @@ defmodule Nfse.Sefin do
 
         client
         |> Client.request(:sefin, :get, path)
+        |> with_unread_parts(access_key)
         |> read_event(access_key)
 
       errors ->
@@ -192,9 +196,18 @@ defmodule Nfse.Sefin do
   defp post_for_issued(client, path, json, dps_id) do
     client
     |> Client.request(:sefin, :post, path, json: json)
+    |> with_unread_parts(nil)
     |> read_issued(dps_id)
     |> put_dps_id(dps_id)
   end
+
+  # Um 2xx cujo JSON nem se decodifica chega do cliente sem nada lido. Ele ganha o mesmo details
+  # dos outros 2xx ilegíveis, que é onde quem guarda a chave e o XML vai procurar.
+  defp with_unread_parts({:error, %Error{kind: :unexpected, status: status} = reason}, access_key)
+       when status in 200..299,
+       do: {:error, %{reason | details: %{access_key: access_key, xml: nil, reason: reason}}}
+
+  defp with_unread_parts(result, _access_key), do: result
 
   defp read_issued({:ok, %{body: body} = response}, dps_id) do
     access_key_read = required(body, "chaveAcesso")

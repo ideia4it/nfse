@@ -383,6 +383,44 @@ defmodule Nfse.ClientTest do
     assert :counters.get(counter, 1) == 1
   end
 
+  test "reports an answer whose JSON does not parse by its status, never as a transport failure" do
+    stub = :broken_json
+
+    Req.Test.stub(stub, fn conn ->
+      status = if conn.request_path =~ "down", do: 503, else: 200
+
+      conn
+      |> Plug.Conn.put_resp_content_type("application/json")
+      |> Plug.Conn.send_resp(status, ~s({"chaveAcesso": ))
+    end)
+
+    client = client(stub)
+
+    assert {:error, %Error{kind: :unexpected, status: 200, details: {:invalid_json, _reason}}} =
+             Client.request(client, :sefin, :get, "/nfse/1")
+
+    assert {:error, %Error{kind: :server, status: 503, messages: []}} =
+             Client.request(client, :sefin, :post, "/down", json: %{})
+  end
+
+  test "does not carry a retried 503 into the transport failure that follows it" do
+    stub_name = :retried_503_then_reset
+    {counter, count} = count_calls()
+
+    Req.Test.stub(stub_name, fn conn ->
+      count.()
+
+      if :counters.get(counter, 1) == 1,
+        do: Plug.Conn.send_resp(conn, 503, ""),
+        else: Req.Test.transport_error(conn, :econnreset)
+    end)
+
+    assert {:error, %Error{kind: :transport, status: nil}} =
+             Client.request(fast_client(stub_name), :sefin, :get, "/nfse/1")
+
+    assert :counters.get(counter, 1) == 2
+  end
+
   test "accepts the statuses the caller lists instead of failing" do
     stub = :accepted_statuses
 
