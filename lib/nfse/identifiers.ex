@@ -21,6 +21,19 @@ defmodule Nfse.Identifiers do
       zero_padded(number, 14) <> zero_padded(serie, 5) <> zero_padded(n_dps, 15)
   end
 
+  @doc """
+  O `Id` de 59 caracteres do pedido de registro de evento: `"PRE"`, a chave de acesso da NFS-e (50
+  dígitos) e o tipo do evento (6). O texto do XSD cita o número do pedido (`nPedRegEvento`), mas o
+  padrão `PRE[0-9]{56}` não tem lugar para ele.
+  """
+  @spec event_request_id(String.t(), String.t()) :: String.t()
+  def event_request_id(access_key, event_type), do: "PRE" <> access_key <> event_type
+
+  @doc "A chave de acesso da NFS-e dentro do `Id` de um pedido de registro de evento."
+  @spec event_request_access_key(String.t()) :: String.t()
+  def event_request_access_key("PRE" <> <<access_key::binary-size(50), _event_type::binary>>),
+    do: access_key
+
   # Tabela do tipo de inscrição federal do Anexo I, v1.01 de 09/02/2026.
   defp inscription_type(:cpf), do: "1"
   defp inscription_type(:cnpj), do: "2"

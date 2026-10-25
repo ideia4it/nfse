@@ -31,4 +31,33 @@ defmodule Nfse do
   @spec fetch_access_key(Nfse.Client.t(), String.t()) ::
           {:ok, String.t()} | {:error, Nfse.Error.t()}
   defdelegate fetch_access_key(client, dps_id), to: Sefin
+
+  @doc """
+  Registra um evento da NFS-e, como a solicitação de análise fiscal ou a manifestação do tomador.
+
+  Monta, valida e assina o pedido (`Nfse.PedidoEvento.build/2`) e o envia à Sefin uma única vez.
+  Se a Sefin não responder (`:timeout`, `:transport` ou `:server`), o resultado é incerto: confira
+  com `fetch_event/4` antes de reenviar.
+  """
+  @spec register_event(Nfse.Client.t(), Nfse.PedidoEvento.t() | map()) ::
+          {:ok, Nfse.Event.t()} | {:error, Nfse.Error.t()}
+  defdelegate register_event(client, pedido), to: Sefin
+
+  @doc """
+  Cancela uma NFS-e pelo evento `101101`.
+
+  Opções: `:c_motivo` (`1` erro na emissão, `2` serviço não prestado, `9` outros) e `:x_motivo`
+  (de 15 a 255 caracteres), obrigatórias, e `:ver_aplic`, que por padrão é `"nfse-"` seguido da
+  versão da biblioteca. O autor é o dono do certificado do cliente.
+  """
+  @spec cancel(Nfse.Client.t(), String.t(), keyword()) ::
+          {:ok, Nfse.Event.t()} | {:error, Nfse.Error.t()}
+  defdelegate cancel(client, access_key, opts), to: Sefin
+
+  @doc """
+  Consulta um evento da NFS-e pelo tipo (como `"101101"`) e pelo número de sequência.
+  """
+  @spec fetch_event(Nfse.Client.t(), String.t(), String.t(), pos_integer()) ::
+          {:ok, Nfse.Event.t()} | {:error, Nfse.Error.t()}
+  defdelegate fetch_event(client, access_key, event_type, sequence), to: Sefin
 end

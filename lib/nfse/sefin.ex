@@ -11,6 +11,14 @@ defmodule Nfse.Sefin do
   A documentação da Sefin descreve a resposta de sucesso em camelCase, mas os erros chegam em
   PascalCase; os campos de sucesso são lidos nas duas grafias.
 
+  ## Eventos
+
+  `register_event/2` envia o pedido assinado a `POST /nfse/{chave}/eventos` e `fetch_event/4` lê um
+  evento em `GET /nfse/{chave}/eventos/{tipo}/{sequência}`. Como na emissão, a escrita sai uma única
+  vez: um `:timeout` ou `:server` deixa o resultado incerto, e o evento se confere com
+  `fetch_event/4` antes de qualquer reenvio. A recusa de um evento chega com um único objeto
+  `erro`, que o cliente já lê.
+
   ## O que não está confirmado
 
   Itens da Sefin ainda sem prova contra o ambiente de produção restrita:
@@ -20,9 +28,22 @@ defmodule Nfse.Sefin do
     * a assinatura da DPS em RSA-SHA1 ou RSA-SHA256
     * se o ME/EPP do Simples Nacional informa `pAliq`
     * a série com `^` ou `$`, que o padrão do schema permite
+    * a resposta de `GET /nfse/{chave}/eventos/{tipo}/{sequência}`, documentada com o mesmo campo
+      `eventoXmlGZipB64` da resposta do registro, ainda não vista de verdade
   """
 
-  alias Nfse.{Client, Codec, Document, DPS, Error, Issued, Schema}
+  alias Nfse.{
+    Client,
+    Codec,
+    Document,
+    DPS,
+    Error,
+    Event,
+    Identifiers,
+    Issued,
+    PedidoEvento,
+    Schema
+  }
 
   @doc false
   @spec issue(Client.t(), DPS.t() | map()) :: {:ok, Issued.t()} | {:error, Error.t()}
@@ -61,16 +82,59 @@ defmodule Nfse.Sefin do
     end
   end
 
+  @doc false
+  @spec register_event(Client.t(), PedidoEvento.t() | map()) ::
+          {:ok, Event.t()} | {:error, Error.t()}
+  def register_event(%Client{} = client, pedido) do
+    with {:ok, %{xml: xml, id: id}} <- PedidoEvento.build(pedido, client) do
+      access_key = Identifiers.event_request_access_key(id)
+
+      client
+      |> Client.request(:sefin, :post, "/nfse/#{segment(access_key)}/eventos",
+        json: %{"pedidoRegistroEventoXmlGZipB64" => Codec.pack(xml)}
+      )
+      |> read_event(access_key)
+    end
+  end
+
+  @doc false
+  @spec cancel(Client.t(), String.t(), keyword()) :: {:ok, Event.t()} | {:error, Error.t()}
+  def cancel(%Client{} = client, access_key, opts) do
+    register_event(client, %{
+      ch_nfse: access_key,
+      ver_aplic: Keyword.get(opts, :ver_aplic, default_ver_aplic()),
+      e101101: %{
+        x_desc: "Cancelamento de NFS-e",
+        c_motivo: opts[:c_motivo],
+        x_motivo: opts[:x_motivo]
+      }
+    })
+  end
+
+  @doc false
+  @spec fetch_event(Client.t(), String.t(), String.t(), pos_integer()) ::
+          {:ok, Event.t()} | {:error, Error.t()}
+  def fetch_event(%Client{} = client, access_key, event_type, sequence)
+      when is_integer(sequence) and sequence > 0 do
+    path = "/nfse/#{segment(access_key)}/eventos/#{segment(event_type)}/#{sequence}"
+
+    client
+    |> Client.request(:sefin, :get, path)
+    |> read_event(access_key)
+  end
+
   @doc """
   Lê o XML de uma NFS-e na versão que o atributo `versao` da raiz indica.
   """
   @spec decode_nfse(binary()) :: {:ok, struct()} | {:error, Error.t()}
-  def decode_nfse(xml) do
+  def decode_nfse(xml), do: decode_root(xml, :nfse)
+
+  defp decode_root(xml, root) do
     case Saxy.SimpleForm.parse_string(xml) do
       {:ok, {_tag, attributes, _content} = element} ->
         {_name, version} = List.keyfind(attributes, "versao", 0, {"versao", nil})
 
-        with {:ok, module} <- Schema.root(version, :nfse) do
+        with {:ok, module} <- Schema.root(version, root) do
           module.decode(element)
         end
 
@@ -95,6 +159,18 @@ defmodule Nfse.Sefin do
   end
 
   defp read_issued({:error, _error} = failure, _dps_id), do: failure
+
+  defp read_event({:ok, %{body: body}}, access_key) do
+    with {:ok, packed} <- required(body, "eventoXmlGZipB64"),
+         {:ok, xml} <- Codec.unpack(packed),
+         {:ok, evento} <- decode_root(xml, :evento) do
+      {:ok, %Event{access_key: access_key, evento: evento, xml: xml}}
+    end
+  end
+
+  defp read_event({:error, _error} = failure, _access_key), do: failure
+
+  defp default_ver_aplic, do: "nfse-" <> to_string(Application.spec(:nfse, :vsn))
 
   defp read_nfse(body) do
     with {:ok, packed} <- required(body, "nfseXmlGZipB64"),

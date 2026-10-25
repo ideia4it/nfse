@@ -68,8 +68,7 @@ defmodule Nfse.DPS do
   """
 
   alias Nfse.{Client, Error, Identifiers, Signature}
-  alias Nfse.Schema.SimpleType
-  alias Nfse.Schema.V1_01.{SimpleTypes, TCDPS, TCInfDPS}
+  alias Nfse.Schema.V1_01.{TCDPS, TCInfDPS}
 
   @version "1.01"
   @root_opening_tag ~s(<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="#{@version}">)
@@ -94,17 +93,17 @@ defmodule Nfse.DPS do
   def build(%__MODULE__{} = dps, %Client{} = client), do: build(Map.from_struct(dps), client)
 
   def build(attrs, %Client{} = client) when is_map(attrs) do
-    with {:ok, inf_dps} <- inf_dps(attrs, Client.tp_amb(client)),
+    with {:ok, inf_dps} <- inf_dps(attrs, client),
          {:ok, dps} <- TCDPS.new(%{versao: @version, inf_dps: inf_dps}) do
       {:ok, %{xml: signed_xml(dps.inf_dps, client.certificate), id: dps.inf_dps.id}}
     end
   end
 
-  defp inf_dps(attrs, tp_amb) do
-    caller_errors = id_errors(attrs) ++ environment_errors(attrs, tp_amb)
+  defp inf_dps(attrs, client) do
+    caller_errors = id_errors(attrs) ++ Client.environment_errors(attrs, client)
 
     attrs
-    |> Map.merge(%{tp_amb: tp_amb, id: @provisional_id})
+    |> Map.merge(%{tp_amb: Client.tp_amb(client), id: @provisional_id})
     |> TCInfDPS.new()
     |> put_dps_id()
     |> case do
@@ -116,14 +115,6 @@ defmodule Nfse.DPS do
 
   defp id_errors(attrs) do
     if Map.has_key?(attrs, :id), do: [%{path: "id", error: :unknown_field}], else: []
-  end
-
-  defp environment_errors(attrs, tp_amb) do
-    case SimpleType.cast(SimpleTypes, "TSTipoAmbiente", Map.get(attrs, :tp_amb)) do
-      nil -> []
-      ^tp_amb -> []
-      _other_environment -> [%{path: "tp_amb", error: :environment}]
-    end
   end
 
   defp put_dps_id({:error, %Error{details: errors}}), do: {:error, errors}
