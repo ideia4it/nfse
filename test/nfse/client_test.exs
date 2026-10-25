@@ -358,11 +358,15 @@ defmodule Nfse.ClientTest do
 
     client = client(stub, req_options: [retry: false])
 
-    assert {:error, %Error{kind: :forbidden, status: 403}} =
+    assert {:error, %Error{kind: :forbidden, status: 403} = forbidden} =
              Client.request(client, :sefin, :get, "/forbidden")
 
-    assert {:error, %Error{kind: :not_found, status: 404}} =
+    assert Exception.message(forbidden) =~ "acesso foi negado"
+
+    assert {:error, %Error{kind: :not_found, status: 404} = not_found} =
              Client.request(client, :sefin, :get, "/missing")
+
+    assert Exception.message(not_found) =~ "não foi encontrado"
 
     assert {:error, %Error{kind: :timeout}} = Client.request(client, :sefin, :get, "/slow")
     assert {:error, %Error{kind: :transport}} = Client.request(client, :sefin, :get, "/down")

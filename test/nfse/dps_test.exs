@@ -100,8 +100,10 @@ defmodule Nfse.DPSTest do
       |> Map.put(:id, "DPS292740821122233300018100001000000000000042")
       |> put_in([:toma, :cpf], "5299822472X")
 
-    assert {:error, %Error{kind: :validation, details: details}} =
+    assert {:error, %Error{kind: :validation, details: details} = error} =
              DPS.build(attrs, client_that_cannot_sign)
+
+    assert Exception.message(error) =~ "não passou na validação"
 
     assert Enum.sort_by(details, & &1.path) == [
              %{path: "id", error: :unknown_field},

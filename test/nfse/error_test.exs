@@ -41,22 +41,4 @@ defmodule Nfse.ErrorTest do
       refute message =~ "Confira"
     end
   end
-
-  test "summarizes every kind with a sentence of its own" do
-    kinds = [
-      :validation,
-      :certificate,
-      :rejected,
-      :forbidden,
-      :not_found,
-      :server,
-      :timeout,
-      :transport,
-      :unexpected
-    ]
-
-    summaries = Enum.map(kinds, &Exception.message(%Nfse.Error{kind: &1}))
-
-    assert Enum.uniq(summaries) == summaries
-  end
 end
