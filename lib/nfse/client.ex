@@ -37,8 +37,6 @@ defmodule Nfse.Client do
 
   alias Nfse.Certificate
   alias Nfse.Error
-  alias Nfse.Schema.SimpleType
-  alias Nfse.Schema.V1_01.SimpleTypes
 
   @enforce_keys [:certificate, :environment]
   defstruct [:certificate, :environment, receive_timeout: 60_000, req_options: []]
@@ -82,18 +80,6 @@ defmodule Nfse.Client do
   @spec tp_amb(t()) :: String.t()
   def tp_amb(%__MODULE__{environment: :production}), do: "1"
   def tp_amb(%__MODULE__{environment: :restricted}), do: "2"
-
-  @doc false
-  @spec environment_errors(map(), t()) :: [%{path: String.t(), error: :environment}]
-  def environment_errors(attrs, %__MODULE__{} = client) do
-    tp_amb = tp_amb(client)
-
-    case SimpleType.cast(SimpleTypes, "TSTipoAmbiente", Map.get(attrs, :tp_amb)) do
-      nil -> []
-      ^tp_amb -> []
-      _other_environment -> [%{path: "tp_amb", error: :environment}]
-    end
-  end
 
   @doc """
   Faz a requisição ao serviço e classifica a resposta.

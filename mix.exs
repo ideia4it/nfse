@@ -72,6 +72,7 @@ defmodule Nfse.MixProject do
         Internos: [
           Nfse.Signature,
           Nfse.Identifiers,
+          Nfse.Root,
           Nfse.Schema.Runtime,
           Nfse.Schema.Xml,
           Nfse.Schema.SimpleType,

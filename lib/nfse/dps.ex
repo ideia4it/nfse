@@ -67,15 +67,12 @@ defmodule Nfse.DPS do
       #=> {:ok, %{xml: "<DPS xmlns=...", id: "DPS292740821122233300018100001000000000000042"}}
   """
 
-  alias Nfse.{Client, Error, Identifiers, Signature}
+  alias Nfse.{Client, Error, Identifiers, Root, Signature}
   alias Nfse.Schema.V1_01.{TCDPS, TCInfDPS}
 
   @version "1.01"
   @root_opening_tag ~s(<DPS xmlns="http://www.sped.fazenda.gov.br/nfse" versao="#{@version}">)
 
-  # A validação do TCInfDPS exige o Id, e o Id só sai dos campos já convertidos e validados
-  # (`n_dps: 42` vira "42"). Este Id provisório, válido no padrão, deixa a primeira validação rodar
-  # e é trocado pelo calculado antes de assinar.
   @provisional_id "DPS" <> String.duplicate("0", 42)
 
   @issuers %{"1" => :prest, "2" => :toma, "3" => :interm}
@@ -90,36 +87,17 @@ defmodule Nfse.DPS do
   Calcula `Id`, `versao` e `tpAmb`, valida, assina e devolve o XML da DPS com o `Id`.
   """
   @spec build(t() | map(), Client.t()) :: {:ok, built()} | {:error, Error.t()}
-  def build(%__MODULE__{} = dps, %Client{} = client), do: build(Map.from_struct(dps), client)
-
-  def build(attrs, %Client{} = client) when is_map(attrs) do
-    with {:ok, inf_dps} <- inf_dps(attrs, client),
+  def build(dps, %Client{} = client) when is_map(dps) do
+    with {:ok, inf_dps} <- inf_dps(Root.to_attrs(dps), client),
          {:ok, dps} <- TCDPS.new(%{versao: @version, inf_dps: inf_dps}) do
       {:ok, %{xml: signed_xml(dps.inf_dps, client.certificate), id: dps.inf_dps.id}}
     end
   end
 
-  defp inf_dps(attrs, client) do
-    caller_errors = id_errors(attrs) ++ Client.environment_errors(attrs, client)
+  defp inf_dps(attrs, client),
+    do: Root.build_inf(TCInfDPS, attrs, client, @provisional_id, &put_dps_id/1)
 
-    attrs
-    |> Map.merge(%{tp_amb: Client.tp_amb(client), id: @provisional_id})
-    |> TCInfDPS.new()
-    |> put_dps_id()
-    |> case do
-      {:ok, inf_dps} when caller_errors == [] -> {:ok, inf_dps}
-      {:ok, _inf_dps} -> {:error, %Error{kind: :validation, details: caller_errors}}
-      {:error, errors} -> {:error, %Error{kind: :validation, details: caller_errors ++ errors}}
-    end
-  end
-
-  defp id_errors(attrs) do
-    if Map.has_key?(attrs, :id), do: [%{path: "id", error: :unknown_field}], else: []
-  end
-
-  defp put_dps_id({:error, %Error{details: errors}}), do: {:error, errors}
-
-  defp put_dps_id({:ok, inf_dps}) do
+  defp put_dps_id(inf_dps) do
     with {:ok, inscription} <- issuer_inscription(inf_dps) do
       id = Identifiers.dps_id(inf_dps.c_loc_emi, inscription, inf_dps.serie, inf_dps.n_dps)
       {:ok, %{inf_dps | id: id}}

@@ -51,15 +51,12 @@ defmodule Nfse.PedidoEvento do
   | (vários) | `:choice` | mais de um elemento `e<código>` preenchido, ou nenhum |
   """
 
-  alias Nfse.{Client, Error, Identifiers, Signature}
+  alias Nfse.{Client, Error, Identifiers, Root, Signature}
   alias Nfse.Schema.V1_01.{TCInfPedReg, TCPedRegEvt}
 
   @version "1.01"
   @root_opening_tag ~s(<pedRegEvento xmlns="http://www.sped.fazenda.gov.br/nfse" versao="#{@version}">)
 
-  # O TCInfPedReg exige o Id, e o Id só sai da chave e do evento já convertidos e validados. Este
-  # Id provisório, válido no padrão, deixa a primeira validação rodar e é trocado pelo calculado
-  # antes de assinar.
   @provisional_id "PRE" <> String.duplicate("0", 56)
 
   defstruct Enum.map(TCInfPedReg.__schema__(:fields), & &1.name)
@@ -76,39 +73,25 @@ defmodule Nfse.PedidoEvento do
   Calcula `Id`, `versao` e `tpAmb`, valida, assina e devolve o XML do pedido com o `Id`.
   """
   @spec build(t() | map(), Client.t()) :: {:ok, built()} | {:error, Error.t()}
-  def build(%__MODULE__{} = pedido, %Client{} = client),
-    do: build(Map.from_struct(pedido), client)
-
-  def build(attrs, %Client{} = client) when is_map(attrs) do
-    with {:ok, inf_ped_reg} <- inf_ped_reg(attrs, client),
+  def build(pedido, %Client{} = client) when is_map(pedido) do
+    with {:ok, inf_ped_reg} <- inf_ped_reg(Root.to_attrs(pedido), client),
          {:ok, pedido} <- TCPedRegEvt.new(%{versao: @version, inf_ped_reg: inf_ped_reg}) do
       {:ok, %{xml: signed_xml(pedido.inf_ped_reg, client.certificate), id: inf_ped_reg.id}}
     end
   end
 
   defp inf_ped_reg(attrs, client) do
-    caller_errors = id_errors(attrs) ++ Client.environment_errors(attrs, client)
-
-    attrs
-    |> with_defaults(client)
-    |> TCInfPedReg.new()
-    |> put_event_request_id()
-    |> case do
-      {:ok, inf_ped_reg} when caller_errors == [] -> {:ok, inf_ped_reg}
-      {:ok, _inf_ped_reg} -> {:error, %Error{kind: :validation, details: caller_errors}}
-      {:error, %Error{details: errors}} -> {:error, validation_error(caller_errors ++ errors)}
-    end
-  end
-
-  defp validation_error(details), do: %Error{kind: :validation, details: details}
-
-  defp id_errors(attrs) do
-    if Map.has_key?(attrs, :id), do: [%{path: "id", error: :unknown_field}], else: []
+    Root.build_inf(
+      TCInfPedReg,
+      with_defaults(attrs, client),
+      client,
+      @provisional_id,
+      &put_event_request_id/1
+    )
   end
 
   defp with_defaults(attrs, client) do
     attrs
-    |> Map.merge(%{tp_amb: Client.tp_amb(client), id: @provisional_id})
     |> put_missing(:dh_evento, DateTime.utc_now() |> DateTime.truncate(:second))
     |> put_certificate_author(client.certificate)
   end
@@ -131,9 +114,7 @@ defmodule Nfse.PedidoEvento do
     if Map.get(attrs, key) == nil, do: Map.put(attrs, key, value), else: attrs
   end
 
-  defp put_event_request_id({:error, _error} = failure), do: failure
-
-  defp put_event_request_id({:ok, inf_ped_reg}) do
+  defp put_event_request_id(inf_ped_reg) do
     {_field, "e" <> event_type} =
       Enum.find(@event_fields, fn {field, _xml} -> Map.fetch!(inf_ped_reg, field) != nil end)
 
