@@ -115,7 +115,9 @@ defmodule Nfse.Client do
 
   def messages(_body), do: []
 
-  defp message(error) do
+  @doc "Normaliza um item de `erros` ou de `alertas`, em PascalCase ou camelCase, como `t:Nfse.Error.message/0`."
+  @spec message(map()) :: Error.message()
+  def message(error) do
     %{
       code: field(error, "Codigo", "codigo"),
       description: field(error, "Descricao", "descricao"),

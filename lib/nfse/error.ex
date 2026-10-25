@@ -47,7 +47,7 @@ defmodule Nfse.Error do
 
   @impl true
   def message(%__MODULE__{} = error) do
-    [summary(error.kind), codes(error.messages), dps_reference(error.dps_id)]
+    [summary(error.kind), codes(error.messages), dps_reference(error.kind, error.dps_id)]
     |> Enum.reject(&is_nil/1)
     |> Enum.join(" ")
   end
@@ -69,6 +69,10 @@ defmodule Nfse.Error do
     end
   end
 
-  defp dps_reference(nil), do: nil
-  defp dps_reference(dps_id), do: "Confira a DPS #{dps_id} antes de reenviar."
+  defp dps_reference(_kind, nil), do: nil
+
+  defp dps_reference(kind, dps_id) when kind in [:timeout, :transport, :server],
+    do: "Confira a DPS #{dps_id} antes de reenviar."
+
+  defp dps_reference(_kind, dps_id), do: "DPS #{dps_id}."
 end
