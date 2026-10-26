@@ -40,7 +40,7 @@ defmodule Nfse.PedidoEventoTest do
 
     assert String.starts_with?(
              xml,
-             ~s(<pedRegEvento xmlns="#{@nfse}" versao="1.01"><infPedReg Id="#{id}">)
+             ~s(<?xml version="1.0" encoding="UTF-8"?><pedRegEvento xmlns="#{@nfse}" versao="1.01"><infPedReg Id="#{id}">)
            )
 
     assert xml =~ "<tpAmb>2</tpAmb>"
@@ -52,7 +52,7 @@ defmodule Nfse.PedidoEventoTest do
     signature = Signature.sign(inf_ped_reg, id, client.certificate, Signature.default_algorithm())
 
     assert xml ==
-             ~s(<pedRegEvento xmlns="#{@nfse}" versao="1.01">) <>
+             ~s(<?xml version="1.0" encoding="UTF-8"?><pedRegEvento xmlns="#{@nfse}" versao="1.01">) <>
                inf_ped_reg <> signature <> "</pedRegEvento>"
   end
 

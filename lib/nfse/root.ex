@@ -85,8 +85,10 @@ defmodule Nfse.Root do
     signature = Signature.sign(inf_xml, id, certificate, Signature.default_algorithm())
 
     # A raiz é escrita em volta dos bytes assinados, e não pelo encode do tipo da raiz: a
-    # assinatura só vale para os bytes exatos que ela digeriu.
+    # assinatura só vale para os bytes exatos que ela digeriu. Sem a declaração, a Sefin recusa
+    # com E1229 ("Xml não está utilizando codificação UTF-8") mesmo com os bytes em UTF-8.
     IO.iodata_to_binary([
+      ~s(<?xml version="1.0" encoding="UTF-8"?>),
       ~s(<#{root_tag} xmlns="#{@namespace}" versao="#{@version}">),
       inf_xml,
       signature,

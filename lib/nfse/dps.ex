@@ -64,7 +64,7 @@ defmodule Nfse.DPS do
         },
         client
       )
-      #=> {:ok, %{xml: "<DPS xmlns=...", id: "DPS292740821122233300018100001000000000000042"}}
+      #=> {:ok, %{xml: "<?xml version=\"1.0\" encoding=\"UTF-8\"?><DPS xmlns=...", id: "DPS292740821122233300018100001000000000000042"}}
   """
 
   alias Nfse.{Client, Error, Identifiers, Root}

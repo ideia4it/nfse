@@ -47,7 +47,11 @@ defmodule Nfse.CourtOrderTest do
             %{xml: xml, id: "NFS" <> access_key = id, access_key: access_key, dps_id: @dps_id}} =
              NFSe.build(struct!(NFSe, court_order_nfse()), client(context))
 
-    assert String.starts_with?(xml, ~s(<NFSe xmlns="#{@nfse}" versao="1.01"><infNFSe Id="#{id}">))
+    assert String.starts_with?(
+             xml,
+             ~s(<?xml version="1.0" encoding="UTF-8"?><NFSe xmlns="#{@nfse}" versao="1.01"><infNFSe Id="#{id}">)
+           )
+
     assert xml =~ "<ambGer>2</ambGer><tpEmis>1</tpEmis><cStat>102</cStat>"
     assert xml =~ "<dhProc>2026-11-03T13:00:00+00:00</dhProc><nDFSe>0</nDFSe>"
     assert xml =~ "<dhEmi>2026-11-03T13:00:00+00:00</dhEmi>"
@@ -94,7 +98,10 @@ defmodule Nfse.CourtOrderTest do
       assert String.ends_with?(conn.request_path, "/decisao-judicial/nfse")
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       %{"xmlGZipB64" => packed} = Jason.decode!(body)
-      assert {:ok, "<NFSe xmlns=" <> _ = sent} = Codec.unpack(packed)
+
+      assert {:ok, ~s(<?xml version="1.0" encoding="UTF-8"?><NFSe xmlns=) <> _ = sent} =
+               Codec.unpack(packed)
+
       assert sent =~ "<Signature"
 
       conn

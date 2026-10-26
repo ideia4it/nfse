@@ -23,7 +23,10 @@ defmodule Nfse.EventsTest do
       assert conn.request_path =~ "/nfse/#{@key}/eventos"
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       %{"pedidoRegistroEventoXmlGZipB64" => packed} = Jason.decode!(body)
-      assert {:ok, "<pedRegEvento xmlns=" <> _ = request} = Codec.unpack(packed)
+
+      assert {:ok, ~s(<?xml version="1.0" encoding="UTF-8"?><pedRegEvento xmlns=) <> _ = request} =
+               Codec.unpack(packed)
+
       assert request =~ "<xDesc>Cancelamento de NFS-e</xDesc>"
       assert request =~ "<cMotivo>1</cMotivo>"
       assert request =~ "<verAplic>nfse-"
