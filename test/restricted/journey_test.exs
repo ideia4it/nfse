@@ -102,7 +102,7 @@ defmodule Nfse.Restricted.JourneyTest do
 
     %Nfse.DPS{
       dh_emi: DateTime.add(DateTime.utc_now(), -60),
-      ver_aplic: "nfse-restricted-suite",
+      ver_aplic: "nfse-restrita",
       serie: "1",
       n_dps: System.os_time(:millisecond) + offset,
       d_compet: DateTime.to_date(brasilia_now),
