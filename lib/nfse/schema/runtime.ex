@@ -62,8 +62,9 @@ defmodule Nfse.Schema.Runtime do
   `encode/4` escreve na forma canônica (C14N): os atributos extras, que são as declarações de
   namespace, saem primeiro, na ordem dada, e depois os atributos do struct, em ordem de nome. Não há
   espaço entre tags, elemento vazio sai `<x></x>` e nunca `<x/>`, campo ausente é omitido e o
-  escaping é o de `Nfse.Schema.Xml`. Data e hora saem com o offset do próprio `DateTime`
-  (`2026-11-03T10:00:00-03:00`), sem frações de segundo e nunca com `Z`. Decimal sai com exatamente
+  escaping é o de `Nfse.Schema.Xml`. Data e hora saem na hora de Brasília, qualquer que seja o
+  offset do `DateTime` (`~U[2026-11-03 13:00:00Z]` vira `2026-11-03T10:00:00-03:00`), sem frações de
+  segundo e nunca com `Z`. Decimal sai com exatamente
   as casas do tipo. A assinatura (`:signature`) sai como veio.
 
   `encode/4` espera um struct já validado e levanta `ArgumentError` diante de um valor que só daria

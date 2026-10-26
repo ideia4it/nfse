@@ -54,7 +54,8 @@ defmodule Nfse.PedidoEvento do
   alias Nfse.{Client, Error, Identifiers, Root}
   alias Nfse.Schema.V1_01.{TCInfPedReg, TCPedRegEvt}
 
-  @computed %{id: "PRE" <> String.duplicate("0", 56)}
+  # O tipo de inscrição "1" deixa o Id provisório válido também no padrão da NT 009.
+  @computed %{id: "PRE00000000" <> "1" <> String.duplicate("0", 47)}
 
   defstruct Enum.map(TCInfPedReg.__schema__(:fields), & &1.name)
 

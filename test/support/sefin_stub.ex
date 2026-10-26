@@ -33,7 +33,7 @@ defmodule Nfse.SefinStub do
 
   @doc "O XML de um evento de cancelamento como a Sefin o devolve, com o pedido assinado dentro."
   def event_xml(access_key) do
-    {:ok, %{xml: request_xml}} =
+    {:ok, %{xml: ~s(<?xml version="1.0" encoding="UTF-8"?>) <> request_xml}} =
       Nfse.PedidoEvento.build(
         %{
           ch_nfse: access_key,

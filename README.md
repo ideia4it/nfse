@@ -97,30 +97,29 @@ Os campos seguem o nome do XSD em `snake_case`, com as siglas NFSe, DFSe, NFe e 
 
 Estes pontos dependem da execução contra a produção restrita, descrita na próxima seção, e estão também nas seções "O que não está confirmado" de cada módulo:
 
-  * O caminho da Sefin na produção restrita: `/API/SefinNacional`, como no portal gov.br, ou `/SefinNacional`.
-  * A assinatura da DPS em RSA-SHA1 ou RSA-SHA256.
-  * Se o ME/EPP do Simples Nacional informa `pAliq`.
   * A série da DPS com `^` ou `$`, que o padrão do XSD permite ao pé da letra.
-  * Emoji no `xNome`. O XSD não tem o padrão Latin-1 nesse campo e a biblioteca o segue; se a Sefin recusa, a recusa chega como `:rejected`.
   * Campos de texto só com espaços em branco.
   * A recusa de uma DPS repetida pelo `Id`, de que depende o reenvio depois de uma conferência negativa (veja [Conferir após timeout](guides/conferir-apos-timeout.md)). Se a Sefin a aceitar, a nota sai duas vezes.
-  * O formato da resposta de `GET /nfse/{chave}/eventos/{tipo}/{sequência}` (`Nfse.fetch_event/4`), documentado com o mesmo campo `eventoXmlGZipB64` do registro, e o de `GET /contribuintes/NFSe/{chave}/Eventos` (`Nfse.events/2`).
+  * O formato dos itens de `GET /contribuintes/NFSe/{chave}/Eventos` (`Nfse.events/2`).
   * O fluxo de decisão judicial, que só se prova com um município que cadastre a decisão e autorize o contribuinte. Dentro dele, o `nDFSe` `"0"` que o manual exige e o padrão do XSD recusa (`[1-9]{1}[0-9]{0,12}`): a biblioteca segue o manual.
   * As chaves `beneficio` e `regimesEspeciais` dos parâmetros municipais, que o swagger não mostra.
-  * A cadeia do certificado no handshake. A biblioteca lê a cadeia do `.pfx`, mas o TLS envia só a folha. Se a Sefin recusar o handshake pedindo a cadeia, enviar `cert: [folha | cadeia]` (veja "O que não está confirmado" em `Nfse.Client`).
 
 ## Rodando contra a produção restrita
 
-A suíte `test/restricted/journey_test.exs` conversa com a produção restrita da Sefin e do ADN, onde os documentos não têm validade jurídica, usando um certificado ICP-Brasil A1 de verdade. Ela fica fora do `mix test` e precisa de três variáveis de ambiente:
+A suíte `test/restricted/journey_test.exs` conversa com a produção restrita da Sefin e do ADN, onde os documentos não têm validade jurídica, usando um certificado ICP-Brasil A1 de verdade. Ela fica fora do `mix test` e precisa de quatro variáveis de ambiente:
 
 | Variável | Conteúdo |
 |---|---|
 | `NFSE_PFX_PATH` | caminho do arquivo `.pfx` do emitente |
 | `NFSE_PFX_PASSWORD` | senha do `.pfx` |
 | `NFSE_C_LOC_EMI` | código IBGE de sete dígitos do município do emitente |
+| `NFSE_TOMADOR_CPF` | CPF de uma pessoa que existe no cadastro da Receita, usado como tomador |
+| `NFSE_PRESTADOR_IM` | opcional: inscrição municipal do emitente, que a Sefin exige (E0116) quando o município a registrou no Cadastro Nacional de Contribuintes e recusa (E0120) quando não registrou |
 
 ```bash
-NFSE_PFX_PATH=/caminho/certificado.pfx NFSE_PFX_PASSWORD=... NFSE_C_LOC_EMI=2927408 mix test --only restricted
+NFSE_PFX_PATH=/caminho/certificado.pfx NFSE_PFX_PASSWORD=... NFSE_C_LOC_EMI=2927408 NFSE_TOMADOR_CPF=... mix test --only restricted
 ```
 
-O CNPJ do emitente sai do certificado. Sem as variáveis, a suíte falha e diz quais faltam. Cada execução emite e cancela uma nota de teste; o tomador é fictício.
+Desde 20/10/2026 a produção restrita roda o leiaute da NT 009 (pacote `PRODREST v1.01-20261020`), que a produção ainda não adotou, e recusa por esquema (E1235) a DPS do leiaute de produção que esta versão escreve. Até a produção adotar a NT 009, a suíte só passa lá com o schema gerado do pacote da restrita. Foi assim que ela passou inteira em 26/10/2026, num branch descartável.
+
+O CNPJ do emitente sai do certificado. Sem as variáveis, a suíte falha e diz quais faltam. Cada execução emite e cancela até duas notas de teste. A Sefin recusa tomador que não existe no cadastro de CPF (E0207), por isso o CPF vem de fora e nunca fica no repositório; o nome do tomador é fictício.

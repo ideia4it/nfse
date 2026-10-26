@@ -31,22 +31,22 @@ defmodule Nfse.Sefin do
   confere com `fetch_event/4` antes de qualquer reenvio. A recusa de um evento chega com um único
   objeto `erro`, que o cliente já lê.
 
+  ## Medido na produção restrita (26/10/2026)
+
+    * a DPS assinada em RSA-SHA1 é aceita
+    * emoji no `xNome` do tomador é aceito
+    * `GET /nfse/{chave}/eventos/{tipo}/{sequência}` responde a lista `eventos`, com o XML em
+      `arquivoXml` como o base64 do texto que o registro devolve em `eventoXmlGZipB64`, e não o
+      `eventoXmlGZipB64` que o swagger descreve
+
   ## O que não está confirmado
 
   Itens da Sefin ainda sem prova contra o ambiente de produção restrita:
 
-    * o caminho da Sefin em produção restrita: `/API/SefinNacional`, como no portal gov.br, ou
-      `/SefinNacional`
-    * a assinatura da DPS em RSA-SHA1 ou RSA-SHA256
-    * se o ME/EPP do Simples Nacional informa `pAliq`
     * a série com `^` ou `$`, que o padrão do schema permite
-    * emoji no `xNome`, que o XSD não restringe e a biblioteca aceita; se a Sefin o recusar, a
-      recusa chega como `:rejected`
     * campo de texto só com espaços em branco, que a biblioteca nunca apara e envia como está
     * a recusa de uma DPS repetida pelo `Id`: se a Sefin a aceitar, reenviar depois de uma
       conferência negativa emite a nota duas vezes
-    * a resposta de `GET /nfse/{chave}/eventos/{tipo}/{sequência}`, documentada com o mesmo campo
-      `eventoXmlGZipB64` da resposta do registro, ainda não vista de verdade
   """
 
   alias Nfse.{
@@ -159,6 +159,7 @@ defmodule Nfse.Sefin do
 
         client
         |> Client.request(:sefin, :get, path)
+        |> with_listed_event()
         |> with_unread_parts(access_key)
         |> read_event(access_key)
 
@@ -208,6 +209,30 @@ defmodule Nfse.Sefin do
        do: {:error, %{reason | details: %{access_key: access_key, xml: nil, reason: reason}}}
 
   defp with_unread_parts(result, _access_key), do: result
+
+  # A consulta de um evento não segue o swagger: responde a lista `eventos`, e o XML vem em
+  # `arquivoXml` como o base64 do mesmo texto que o registro devolve em `eventoXmlGZipB64`.
+  defp with_listed_event({:ok, %{status: status, body: body} = response}) do
+    case listed_event_file(body) do
+      nil ->
+        {:error, %Error{kind: :unexpected, status: status, details: {:missing_field, "eventos"}}}
+
+      packed ->
+        {:ok, %{response | body: %{"eventoXmlGZipB64" => packed}}}
+    end
+  end
+
+  defp with_listed_event(failure), do: failure
+
+  defp listed_event_file(body) do
+    with [listed | _] <- Response.field(body, "eventos"),
+         file when is_binary(file) <- Response.field(listed, "arquivoXml"),
+         {:ok, packed} <- Base.decode64(file, ignore: :whitespace) do
+      packed
+    else
+      _unreadable -> nil
+    end
+  end
 
   defp read_issued({:ok, %{body: body} = response}, dps_id) do
     access_key_read = required(body, "chaveAcesso")

@@ -84,7 +84,7 @@ details
 #=> [%{path: "toma.cpf_", error: :unknown_field}]
 ```
 
-Uma chave desconhecida num mapa aninhado nunca é descartada em silêncio. Texto fora do Latin-1 (emoji, aspas curvas, reticências) num campo derivado de `TSString`, como `ver_aplic`, também volta como erro `:pattern` com o caminho do campo. Já `x_nome` e `x_desc_serv` não têm esse padrão no XSD e a biblioteca o segue: se a Sefin aceita emoji nesses campos, só a execução contra a produção restrita mostra (veja o README).
+Uma chave desconhecida num mapa aninhado nunca é descartada em silêncio. Texto fora do Latin-1 (emoji, aspas curvas, reticências) num campo derivado de `TSString`, como `ver_aplic`, também volta como erro `:pattern` com o caminho do campo. Já `x_nome` e `x_desc_serv` não têm esse padrão no XSD e a biblioteca o segue: a produção restrita aceitou emoji em `x_nome` em 26/10/2026.
 
 ## Erros da Sefin
 

@@ -23,7 +23,10 @@ defmodule Nfse.EventsTest do
       assert conn.request_path =~ "/nfse/#{@key}/eventos"
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       %{"pedidoRegistroEventoXmlGZipB64" => packed} = Jason.decode!(body)
-      assert {:ok, "<pedRegEvento xmlns=" <> _ = request} = Codec.unpack(packed)
+
+      assert {:ok, ~s(<?xml version="1.0" encoding="UTF-8"?><pedRegEvento xmlns=) <> _ = request} =
+               Codec.unpack(packed)
+
       assert request =~ "<xDesc>Cancelamento de NFS-e</xDesc>"
       assert request =~ "<cMotivo>1</cMotivo>"
       assert request =~ "<verAplic>nfse-"
@@ -107,11 +110,41 @@ defmodule Nfse.EventsTest do
       assert conn.method == "GET"
       assert conn.request_path =~ "/nfse/#{@key}/eventos/101101/1"
 
-      Req.Test.json(conn, %{"eventoXmlGZipB64" => Codec.pack(SefinStub.event_xml(@key))})
+      # A resposta medida na produção restrita em 26/10/2026, que o swagger não descreve.
+      Req.Test.json(conn, %{
+        "tipoAmbiente" => 2,
+        "versaoAplicativo" => "SefinNacional_1.6.0",
+        "dataHoraProcessamento" => "2026-11-03T10:00:06.2893541-03:00",
+        "eventos" => [
+          %{
+            "chaveAcesso" => @key,
+            "tipoEvento" => 101_101,
+            "numeroPedidoRegistroEvento" => 1,
+            "dataHoraRecebimento" => "2026-11-03T10:00:05.177",
+            "arquivoXml" => Base.encode64(Codec.pack(SefinStub.event_xml(@key)))
+          }
+        ]
+      })
     end)
 
-    assert {:ok, %Event{access_key: @key, evento: %TCEvento{}}} =
+    assert {:ok, %Event{access_key: @key, evento: %TCEvento{}, xml: xml}} =
              Nfse.fetch_event(client(context), @key, "101101", 1)
+
+    assert xml == SefinStub.event_xml(@key)
+
+    Req.Test.stub(context.test, &Req.Test.json(&1, %{"eventos" => []}))
+
+    assert {:error, %Error{kind: :unexpected, status: 200, details: %{access_key: @key}}} =
+             Nfse.fetch_event(client(context), @key, "101101", 1)
+
+    Req.Test.stub(context.test, fn conn ->
+      conn
+      |> Plug.Conn.put_status(404)
+      |> Req.Test.json(%{"erro" => %{"descricao" => "Nenhum evento encontrado para a NFS-e"}})
+    end)
+
+    assert {:error, %Error{kind: :not_found}} =
+             Nfse.fetch_event(client(context), @key, "101101", 2)
   end
 
   test "refuses a malformed key, event type or sequence before the network", context do

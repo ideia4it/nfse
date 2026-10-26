@@ -52,7 +52,7 @@ defmodule Nfse.Signature do
   @doc """
   O algoritmo que a biblioteca usa quando o chamador não escolhe outro.
 
-  É `:rsa_sha1` até a conferência na produção restrita.
+  É `:rsa_sha1`, que a produção restrita aceitou em 26/10/2026.
   """
   @spec default_algorithm() :: algorithm()
   def default_algorithm, do: :rsa_sha1

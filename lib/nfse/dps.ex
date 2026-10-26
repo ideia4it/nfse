@@ -64,13 +64,14 @@ defmodule Nfse.DPS do
         },
         client
       )
-      #=> {:ok, %{xml: "<DPS xmlns=...", id: "DPS292740821122233300018100001000000000000042"}}
+      #=> {:ok, %{xml: "<?xml version=\"1.0\" encoding=\"UTF-8\"?><DPS xmlns=...", id: "DPS292740821122233300018100001000000000000042"}}
   """
 
   alias Nfse.{Client, Error, Identifiers, Root}
   alias Nfse.Schema.V1_01.{TCDPS, TCInfDPS}
 
-  @computed %{id: "DPS" <> String.duplicate("0", 42)}
+  # O tipo de inscrição "1" deixa o Id provisório válido também no padrão da NT 009.
+  @computed %{id: "DPS0000000" <> "1" <> String.duplicate("0", 34)}
 
   @issuers %{"1" => :prest, "2" => :toma, "3" => :interm}
 

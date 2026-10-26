@@ -20,7 +20,9 @@ defmodule Nfse.SefinTest do
       assert conn.request_path =~ "/nfse"
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       %{"dpsXmlGZipB64" => packed} = Jason.decode!(body)
-      assert {:ok, "<DPS xmlns=" <> _} = Codec.unpack(packed)
+
+      assert {:ok, ~s(<?xml version="1.0" encoding="UTF-8"?><DPS xmlns=) <> _} =
+               Codec.unpack(packed)
 
       conn
       |> Plug.Conn.put_status(201)

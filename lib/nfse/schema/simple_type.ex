@@ -11,6 +11,8 @@ defmodule Nfse.Schema.SimpleType do
 
   @type kind :: :string | :date | :datetime | {:decimal, pos_integer(), pos_integer()}
 
+  @brasilia_utc_offset -3 * 3600
+
   @type error ::
           :type
           | :length
@@ -105,6 +107,20 @@ defmodule Nfse.Schema.SimpleType do
 
   defp check_value(_kind, _value), do: {:error, :type}
 
+  @doc """
+  A hora de Brasília (UTC-3) do instante `datetime`, sem frações de segundo.
+
+  A Sefin lê a hora de um `TSDateTimeUTC` como hora de Brasília, sem considerar o offset:
+  `13:00:00+00:00` vira 13:00 em Brasília, três horas no futuro, e a DPS volta com E0008.
+  """
+  @spec brasilia_wall_clock(DateTime.t()) :: NaiveDateTime.t()
+  def brasilia_wall_clock(%DateTime{} = datetime) do
+    datetime
+    |> DateTime.to_naive()
+    |> NaiveDateTime.add(@brasilia_utc_offset - datetime.utc_offset - datetime.std_offset)
+    |> NaiveDateTime.truncate(:second)
+  end
+
   # O xs:string só aceita os caracteres do XML 1.0. Um controle como o U+000B, que o Word usa como
   # quebra de linha, faria o leitor da Sefin recusar o documento inteiro, sem dizer o campo.
   defp xml_text?(<<character::utf8, rest::binary>>)
@@ -117,15 +133,8 @@ defmodule Nfse.Schema.SimpleType do
   defp lexical(:string, text), do: text
   defp lexical(:date, date), do: Date.to_iso8601(date)
 
-  defp lexical(:datetime, datetime) do
-    wall_clock =
-      datetime
-      |> DateTime.to_naive()
-      |> NaiveDateTime.truncate(:second)
-      |> NaiveDateTime.to_iso8601()
-
-    wall_clock <> utc_offset(datetime.utc_offset + datetime.std_offset)
-  end
+  defp lexical(:datetime, datetime),
+    do: NaiveDateTime.to_iso8601(brasilia_wall_clock(datetime)) <> "-03:00"
 
   defp lexical({:decimal, _integer_limit, places}, decimal) do
     decimal
@@ -152,18 +161,6 @@ defmodule Nfse.Schema.SimpleType do
   defp from_lexical({:decimal, _integer_limit, _places}, text) do
     {decimal, ""} = Decimal.parse(text)
     {:ok, decimal}
-  end
-
-  defp utc_offset(seconds) do
-    sign = if seconds < 0, do: "-", else: "+"
-    minutes = div(abs(seconds), 60)
-    sign <> two_digits(div(minutes, 60)) <> ":" <> two_digits(rem(minutes, 60))
-  end
-
-  defp two_digits(number) do
-    number
-    |> Integer.to_string()
-    |> String.pad_leading(2, "0")
   end
 
   # Contas sobre coeficiente e expoente, sem Decimal.round: o round segue a precisão do contexto do

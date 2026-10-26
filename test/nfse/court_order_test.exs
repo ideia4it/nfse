@@ -47,10 +47,14 @@ defmodule Nfse.CourtOrderTest do
             %{xml: xml, id: "NFS" <> access_key = id, access_key: access_key, dps_id: @dps_id}} =
              NFSe.build(struct!(NFSe, court_order_nfse()), client(context))
 
-    assert String.starts_with?(xml, ~s(<NFSe xmlns="#{@nfse}" versao="1.01"><infNFSe Id="#{id}">))
+    assert String.starts_with?(
+             xml,
+             ~s(<?xml version="1.0" encoding="UTF-8"?><NFSe xmlns="#{@nfse}" versao="1.01"><infNFSe Id="#{id}">)
+           )
+
     assert xml =~ "<ambGer>2</ambGer><tpEmis>1</tpEmis><cStat>102</cStat>"
-    assert xml =~ "<dhProc>2026-11-03T13:00:00+00:00</dhProc><nDFSe>0</nDFSe>"
-    assert xml =~ "<dhEmi>2026-11-03T13:00:00+00:00</dhEmi>"
+    assert xml =~ "<dhProc>2026-11-03T10:00:00-03:00</dhProc><nDFSe>0</nDFSe>"
+    assert xml =~ "<dhEmi>2026-11-03T10:00:00-03:00</dhEmi>"
     assert xml =~ ~s(<DPS versao="1.01"><infDPS Id="#{@dps_id}"><tpAmb>2</tpAmb>)
     assert [_only_the_invoice_signature] = Regex.scan(~r/<Signature /, xml)
     assert xml =~ ~r{</infNFSe><Signature xmlns="http://www.w3.org/2000/09/xmldsig#">.*</NFSe>$}
@@ -64,6 +68,14 @@ defmodule Nfse.CourtOrderTest do
     assert "2927408" <>
              "2" <> "2" <> "11222333000181" <> "0000000000001" <> "2611" <> c_num_and_dv =
              access_key
+
+    # 01:00 UTC de 1º de dezembro ainda é 30 de novembro em Brasília, a hora que vai no dhEmi.
+    late_night = put_in(court_order_nfse(), [:dps, :inf_dps, :dh_emi], ~U[2026-12-01 01:00:00Z])
+
+    assert {:ok, %{access_key: late_night_key}} =
+             NFSe.build(struct!(NFSe, late_night), client(context))
+
+    assert String.slice(late_night_key, 36, 4) == "2611"
 
     assert c_num_and_dv =~ ~r/^\d{10}$/
     assert Identifiers.check_digit(String.slice(access_key, 0, 49)) == String.last(access_key)
@@ -94,7 +106,10 @@ defmodule Nfse.CourtOrderTest do
       assert String.ends_with?(conn.request_path, "/decisao-judicial/nfse")
       {:ok, body, conn} = Plug.Conn.read_body(conn)
       %{"xmlGZipB64" => packed} = Jason.decode!(body)
-      assert {:ok, "<NFSe xmlns=" <> _ = sent} = Codec.unpack(packed)
+
+      assert {:ok, ~s(<?xml version="1.0" encoding="UTF-8"?><NFSe xmlns=) <> _ = sent} =
+               Codec.unpack(packed)
+
       assert sent =~ "<Signature"
 
       conn

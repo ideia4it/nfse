@@ -19,7 +19,12 @@ defmodule Nfse.DPSTest do
     assert {:ok, %{xml: xml, id: id}} = DPS.build(struct!(DPS, studio_ana_dps()), client)
 
     assert id == "DPS292740821122233300018100001000000000000042"
-    assert String.starts_with?(xml, ~s(<DPS xmlns="#{@nfse}" versao="1.01"><infDPS Id="#{id}">))
+
+    assert String.starts_with?(
+             xml,
+             ~s(<?xml version="1.0" encoding="UTF-8"?><DPS xmlns="#{@nfse}" versao="1.01"><infDPS Id="#{id}">)
+           )
+
     assert xml =~ "<tpAmb>2</tpAmb>"
     assert xml =~ ~s(</infDPS><Signature xmlns="#{@dsig}">)
     Xmllint.validate!(xml, "test/support/xsd_patched/DPS_v1.01.xsd")
@@ -28,7 +33,10 @@ defmodule Nfse.DPSTest do
     # daqueles mesmos bytes, sem reescrita depois de assinar.
     [inf_dps] = Regex.run(~r{<infDPS .*</infDPS>}, xml)
     signature = Signature.sign(inf_dps, id, client.certificate, Signature.default_algorithm())
-    assert xml == ~s(<DPS xmlns="#{@nfse}" versao="1.01">) <> inf_dps <> signature <> "</DPS>"
+
+    assert xml ==
+             ~s(<?xml version="1.0" encoding="UTF-8"?><DPS xmlns="#{@nfse}" versao="1.01">) <>
+               inf_dps <> signature <> "</DPS>"
   end
 
   test "takes the issuer inscription from the actor named by tpEmit", %{client: client} do
