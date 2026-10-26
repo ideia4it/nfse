@@ -96,7 +96,10 @@ defmodule Nfse.Restricted.JourneyTest do
     assert Identifiers.check_digit(String.slice(access_key, 0, 49)) == String.last(access_key)
   end
 
-  defp dps(%{client: client, c_loc_emi: c_loc_emi, taker_cpf: taker_cpf}, taker_name, offset) do
+  defp dps(context, taker_name, offset) do
+    %{client: client, c_loc_emi: c_loc_emi, taker_cpf: taker_cpf, provider_im: provider_im} =
+      context
+
     brasilia_now = DateTime.add(DateTime.utc_now(), -3 * 3600)
 
     %Nfse.DPS{
@@ -109,6 +112,7 @@ defmodule Nfse.Restricted.JourneyTest do
       c_loc_emi: c_loc_emi,
       prest: %{
         cnpj: client.certificate.cnpj,
+        im: if(provider_im != "", do: provider_im),
         reg_trib: %{op_simp_nac: 3, reg_ap_trib_sn: 1, reg_esp_trib: 0}
       },
       toma: %{cpf: taker_cpf, x_nome: taker_name},

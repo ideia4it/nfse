@@ -117,6 +117,7 @@ A suíte `test/restricted/journey_test.exs` conversa com a produção restrita d
 | `NFSE_PFX_PASSWORD` | senha do `.pfx` |
 | `NFSE_C_LOC_EMI` | código IBGE de sete dígitos do município do emitente |
 | `NFSE_TOMADOR_CPF` | CPF de uma pessoa que existe no cadastro da Receita, usado como tomador |
+| `NFSE_PRESTADOR_IM` | opcional: inscrição municipal do emitente, que a Sefin exige (E0116) quando o município a registrou no Cadastro Nacional de Contribuintes e recusa (E0120) quando não registrou |
 
 ```bash
 NFSE_PFX_PATH=/caminho/certificado.pfx NFSE_PFX_PASSWORD=... NFSE_C_LOC_EMI=2927408 NFSE_TOMADOR_CPF=... mix test --only restricted

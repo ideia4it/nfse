@@ -7,8 +7,9 @@ defmodule Nfse.RestrictedEnvironment do
 
   @doc """
   Monta o cliente da produção restrita a partir das variáveis de ambiente e devolve também o
-  código IBGE do município do emitente e o CPF do tomador. Levanta, nomeando as variáveis, quando
-  faltam; a suíte nunca passa em silêncio sem credencial.
+  código IBGE do município do emitente, o CPF do tomador e, se houver, a inscrição municipal do
+  prestador. Levanta, nomeando as variáveis, quando faltam; a suíte nunca passa em silêncio sem
+  credencial.
   """
   def fetch! do
     case Enum.reject(@variables, &present?/1) do
@@ -27,7 +28,8 @@ defmodule Nfse.RestrictedEnvironment do
       %{
         client: client,
         c_loc_emi: System.fetch_env!("NFSE_C_LOC_EMI"),
-        taker_cpf: System.fetch_env!("NFSE_TOMADOR_CPF")
+        taker_cpf: System.fetch_env!("NFSE_TOMADOR_CPF"),
+        provider_im: System.get_env("NFSE_PRESTADOR_IM", "")
       }
     else
       {:error, reason} ->
