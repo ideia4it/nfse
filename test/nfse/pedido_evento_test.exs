@@ -62,12 +62,12 @@ defmodule Nfse.PedidoEventoTest do
     assert {:ok, %{xml: xml}} = PedidoEvento.build(attrs, client)
     assert xml =~ "<CPFAutor>52998224725</CPFAutor>"
     refute xml =~ "CNPJAutor"
-    assert xml =~ "<dhEvento>2026-11-03T13:00:00+00:00</dhEvento>"
+    assert xml =~ "<dhEvento>2026-11-03T10:00:00-03:00</dhEvento>"
 
     assert {:ok, %{xml: stamped}} =
              PedidoEvento.build(Map.delete(cancellation(), :dh_evento), client)
 
-    assert stamped =~ ~r/<dhEvento>\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\+00:00<\/dhEvento>/
+    assert stamped =~ ~r/<dhEvento>\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d-03:00<\/dhEvento>/
   end
 
   test "keeps the CNPJ author the caller gives, such as a branch of the certificate root",

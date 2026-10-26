@@ -243,10 +243,10 @@ defmodule Nfse.Schema.RuntimeTest do
     end)
   end
 
-  test "writes the offset of the DateTime and never Z or fractions" do
+  test "writes every date and time in Brasília time, never with Z or fractions" do
     assert {:ok, utc} = Runtime.new(Nota, nota_attrs(%{dh_emi: ~U[2026-11-03 13:00:00.123Z]}))
     utc_xml = encode(Nota, utc)
-    assert utc_xml =~ "<dhEmi>2026-11-03T13:00:00+00:00</dhEmi>"
+    assert utc_xml =~ "<dhEmi>2026-11-03T10:00:00-03:00</dhEmi>"
 
     brasilia = %DateTime{
       year: 2026,
@@ -272,7 +272,7 @@ defmodule Nfse.Schema.RuntimeTest do
 
     assert {:ok, %Nota{dh_emi: ~U[2026-11-03 13:00:00Z]}} = decode(Nota, local_xml)
 
-    assert errors(decode(Nota, String.replace(utc_xml, "+00:00", "Z"))) == [
+    assert errors(decode(Nota, String.replace(utc_xml, "-03:00", "Z"))) == [
              %{path: "dh_emi", error: :pattern}
            ]
   end
@@ -292,7 +292,7 @@ defmodule Nfse.Schema.RuntimeTest do
              ~s(<infNota Id="DPS&quot;&amp;&lt;&#x9;&#xA;&#xD;>">) <>
                "<tpAmb>2</tpAmb>" <>
                "<serie>1</serie>" <>
-               "<dhEmi>2026-11-03T13:00:00+00:00</dhEmi>" <>
+               "<dhEmi>2026-11-03T10:00:00-03:00</dhEmi>" <>
                "<dCompet>2026-11-01</dCompet>" <>
                "<vServ>49.90</vServ>" <>
                "<toma><CPF>52998224725</CPF><xNome>a&amp;b&lt;c&gt;&#xD;</xNome><fone></fone></toma>" <>
@@ -470,7 +470,7 @@ defmodule Nfse.Schema.RuntimeTest do
     comma_month = String.replace(xml, "<dCompet>2026-11-01", "<dCompet>2026-0,-30")
     assert errors(decode(Nota, comma_month)) == [%{path: "d_compet", error: :type}]
 
-    comma_offset = String.replace(xml, "13:00:00+00:00", "13:00:00,03:00")
+    comma_offset = String.replace(xml, "10:00:00-03:00", "10:00:00,03:00")
     assert errors(decode(Nota, comma_offset)) == [%{path: "dh_emi", error: :type}]
   end
 

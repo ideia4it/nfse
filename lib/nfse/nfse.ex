@@ -109,7 +109,7 @@ defmodule Nfse.NFSe do
     * a DPS embutida sem assinatura própria, com só o `infNFSe` assinado (a assinatura é opcional
       no `TCDPS`)
     * o município da chave de acesso como o `c_loc_emi` da DPS
-    * o AnoMes da chave como o `YYMM` do `dh_emi`, no fuso em que ele é escrito
+    * o AnoMes da chave como o `YYMM` do `dh_emi` na hora de Brasília, a mesma que vai no XML
     * o `nDFSe` `"0"`, que o manual exige e o padrão do `TSNDFSe` no XSD 1.01 recusa
       (`[1-9]{1}[0-9]{0,12}`). A biblioteca segue o manual. Se a Sefin devolver a nota com o
       `nDFSe` `"0"`, a leitura estrita falha e `Nfse.issue_by_court_order/2` devolve `:unexpected`
@@ -117,6 +117,7 @@ defmodule Nfse.NFSe do
   """
 
   alias Nfse.{Client, DPS, Error, Identifiers, Root}
+  alias Nfse.Schema.SimpleType
   alias Nfse.Schema.V1_01.{TCDPS, TCInfNFSe}
 
   # O id, o dh_proc e o n_dfse são provisórios, válidos no schema e trocados depois da validação: o
@@ -227,7 +228,7 @@ defmodule Nfse.NFSe do
       inf_nfse.amb_ger,
       inscription,
       inf_nfse.n_nfse,
-      Calendar.strftime(inf_dps.dh_emi, "%y%m"),
+      Calendar.strftime(SimpleType.brasilia_wall_clock(inf_dps.dh_emi), "%y%m"),
       c_num
     )
   end
