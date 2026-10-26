@@ -35,10 +35,7 @@ defmodule Nfse.Sefin do
 
   Itens da Sefin ainda sem prova contra o ambiente de produção restrita:
 
-    * o caminho da Sefin em produção restrita: `/API/SefinNacional`, como no portal gov.br, ou
-      `/SefinNacional`
     * a assinatura da DPS em RSA-SHA1 ou RSA-SHA256
-    * se o ME/EPP do Simples Nacional informa `pAliq`
     * a série com `^` ou `$`, que o padrão do schema permite
     * emoji no `xNome`, que o XSD não restringe e a biblioteca aceita; se a Sefin o recusar, a
       recusa chega como `:rejected`

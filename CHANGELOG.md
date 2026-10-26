@@ -15,3 +15,5 @@ Primeira versão.
 - Módulos gerados a partir dos XSD dos leiautes 1.00 e 1.01, com tabela de campos na documentação, e leitura estrita de NFS-e e eventos.
 - `Nfse.Error`: erro único com `kind`, mensagens da Sefin e `dps_id`.
 - Guias em pt-BR e suíte `mix test --only restricted` para a produção restrita.
+- DPS, pedido de evento e NFS-e de decisão judicial saem com a declaração `<?xml version="1.0" encoding="UTF-8"?>`, sem a qual a Sefin recusa com E1229.
+- Data e hora saem sempre na hora de Brasília (`-03:00`): a Sefin lê a hora sem considerar o offset e recusava `+00:00` com E0008.

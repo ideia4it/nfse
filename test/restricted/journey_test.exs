@@ -7,13 +7,12 @@ defmodule Nfse.Restricted.JourneyTest do
   alias Nfse.{Error, Identifiers, RestrictedEnvironment}
 
   setup_all do
-    {client, c_loc_emi} = RestrictedEnvironment.fetch!()
-    %{client: client, c_loc_emi: c_loc_emi}
+    RestrictedEnvironment.fetch!()
   end
 
   test "issues, confirms, fetches, cancels and distributes an invoice on the restricted environment",
-       %{client: client, c_loc_emi: c_loc_emi} do
-    assert {:ok, issued} = Nfse.issue(client, dps(client, c_loc_emi, "Ana Souza", 0))
+       %{client: client} = context do
+    assert {:ok, issued} = Nfse.issue(client, dps(context, "Ana Souza", 0))
 
     cancelling_afterwards(client, issued.access_key, fn ->
       assert issued.nfse.inf_nfse.dps.inf_dps.id == issued.dps_id
@@ -46,8 +45,8 @@ defmodule Nfse.Restricted.JourneyTest do
 
   @tag :records_outcome
   test "records whether the Sefin accepts an emoji in the taker name",
-       %{client: client, c_loc_emi: c_loc_emi} do
-    result = Nfse.issue(client, dps(client, c_loc_emi, "Ana Souza \u{1F60A}", 1))
+       %{client: client} = context do
+    result = Nfse.issue(client, dps(context, "Ana Souza \u{1F60A}", 1))
 
     assert match?({:ok, _}, result) or match?({:error, %Error{kind: :rejected}}, result)
 
@@ -97,7 +96,7 @@ defmodule Nfse.Restricted.JourneyTest do
     assert Identifiers.check_digit(String.slice(access_key, 0, 49)) == String.last(access_key)
   end
 
-  defp dps(client, c_loc_emi, taker_name, offset) do
+  defp dps(%{client: client, c_loc_emi: c_loc_emi, taker_cpf: taker_cpf}, taker_name, offset) do
     brasilia_now = DateTime.add(DateTime.utc_now(), -3 * 3600)
 
     %Nfse.DPS{
@@ -112,7 +111,7 @@ defmodule Nfse.Restricted.JourneyTest do
         cnpj: client.certificate.cnpj,
         reg_trib: %{op_simp_nac: 3, reg_ap_trib_sn: 1, reg_esp_trib: 0}
       },
-      toma: %{cpf: "52998224725", x_nome: taker_name},
+      toma: %{cpf: taker_cpf, x_nome: taker_name},
       serv: %{
         loc_prest: %{c_loc_prestacao: c_loc_emi},
         c_serv: %{c_trib_nac: "060101", x_desc_serv: "Corte de cabelo"}

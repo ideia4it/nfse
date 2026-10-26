@@ -3,12 +3,12 @@ defmodule Nfse.RestrictedEnvironment do
 
   alias Nfse.{Certificate, Client}
 
-  @variables ["NFSE_PFX_PATH", "NFSE_PFX_PASSWORD", "NFSE_C_LOC_EMI"]
+  @variables ["NFSE_PFX_PATH", "NFSE_PFX_PASSWORD", "NFSE_C_LOC_EMI", "NFSE_TOMADOR_CPF"]
 
   @doc """
   Monta o cliente da produção restrita a partir das variáveis de ambiente e devolve também o
-  código IBGE do município do emitente. Levanta, nomeando as variáveis, quando faltam; a suíte
-  nunca passa em silêncio sem credencial.
+  código IBGE do município do emitente e o CPF do tomador. Levanta, nomeando as variáveis, quando
+  faltam; a suíte nunca passa em silêncio sem credencial.
   """
   def fetch! do
     case Enum.reject(@variables, &present?/1) do
@@ -24,7 +24,11 @@ defmodule Nfse.RestrictedEnvironment do
          {:ok, certificate} <-
            Certificate.from_pfx(bundle, System.fetch_env!("NFSE_PFX_PASSWORD")),
          {:ok, client} <- Client.new(certificate: certificate, environment: :restricted) do
-      {client, System.fetch_env!("NFSE_C_LOC_EMI")}
+      %{
+        client: client,
+        c_loc_emi: System.fetch_env!("NFSE_C_LOC_EMI"),
+        taker_cpf: System.fetch_env!("NFSE_TOMADOR_CPF")
+      }
     else
       {:error, reason} ->
         raise "Não foi possível abrir o certificado de NFSE_PFX_PATH: #{failure(reason)}"
