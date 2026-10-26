@@ -6,12 +6,17 @@ defmodule Nfse.Restricted.JourneyTest do
 
   alias Nfse.{Error, Identifiers, RestrictedEnvironment}
 
+  # Elaboração de programas de computador. Um serviço que o município do emitente não administra
+  # volta com E0312, por isso a jornada consulta a alíquota dele antes de emitir.
+  @c_trib_nac "010401"
+
   setup_all do
     RestrictedEnvironment.fetch!()
   end
 
   test "issues, confirms, fetches, cancels and distributes an invoice on the restricted environment",
-       %{client: client} = context do
+       %{client: client, c_loc_emi: c_loc_emi} = context do
+    assert {:ok, _rate} = Nfse.rate(client, c_loc_emi, @c_trib_nac <> "000", brasilia_today())
     assert {:ok, issued} = Nfse.issue(client, dps(context, "Ana Souza", 0))
 
     cancelling_afterwards(client, issued.access_key, fn ->
@@ -100,14 +105,12 @@ defmodule Nfse.Restricted.JourneyTest do
     %{client: client, c_loc_emi: c_loc_emi, taker_cpf: taker_cpf, provider_im: provider_im} =
       context
 
-    brasilia_now = DateTime.add(DateTime.utc_now(), -3 * 3600)
-
     %Nfse.DPS{
       dh_emi: DateTime.add(DateTime.utc_now(), -60),
       ver_aplic: "nfse-restrita",
       serie: "1",
       n_dps: System.os_time(:millisecond) + offset,
-      d_compet: DateTime.to_date(brasilia_now),
+      d_compet: brasilia_today(),
       tp_emit: 1,
       c_loc_emi: c_loc_emi,
       prest: %{
@@ -118,7 +121,10 @@ defmodule Nfse.Restricted.JourneyTest do
       toma: %{cpf: taker_cpf, x_nome: taker_name},
       serv: %{
         loc_prest: %{c_loc_prestacao: c_loc_emi},
-        c_serv: %{c_trib_nac: "060101", x_desc_serv: "Corte de cabelo"}
+        c_serv: %{
+          c_trib_nac: @c_trib_nac,
+          x_desc_serv: "Desenvolvimento de programa de computador"
+        }
       },
       valores: %{
         v_serv_prest: %{v_serv: Decimal.new("49.90")},
@@ -129,4 +135,6 @@ defmodule Nfse.Restricted.JourneyTest do
       }
     }
   end
+
+  defp brasilia_today, do: DateTime.utc_now() |> DateTime.add(-3 * 3600) |> DateTime.to_date()
 end
