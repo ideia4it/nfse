@@ -120,4 +120,6 @@ A suíte `test/restricted/journey_test.exs` conversa com a produção restrita d
 NFSE_PFX_PATH=/caminho/certificado.pfx NFSE_PFX_PASSWORD=... NFSE_C_LOC_EMI=2927408 NFSE_TOMADOR_CPF=... mix test --only restricted
 ```
 
+Desde 20/10/2026 a produção restrita roda o leiaute da NT 009 (pacote `PRODREST v1.01-20261020`), que a produção ainda não adotou, e recusa por esquema (E1235) a DPS do leiaute de produção que esta versão escreve. Até a produção adotar a NT 009, a suíte só passa lá com o schema gerado do pacote da restrita. Foi assim que ela passou inteira em 26/10/2026, num branch descartável.
+
 O CNPJ do emitente sai do certificado. Sem as variáveis, a suíte falha e diz quais faltam. Cada execução emite e cancela até duas notas de teste. A Sefin recusa tomador que não existe no cadastro de CPF (E0207), por isso o CPF vem de fora e nunca fica no repositório; o nome do tomador é fictício.

@@ -6,17 +6,27 @@ defmodule Nfse.Restricted.JourneyTest do
 
   alias Nfse.{Error, Identifiers, RestrictedEnvironment}
 
-  # Elaboração de programas de computador. Um serviço que o município do emitente não administra
-  # volta com E0312, por isso a jornada consulta a alíquota dele antes de emitir.
-  @c_trib_nac "010401"
+  # A parametrização da produção restrita não espelha a de produção, e um serviço que o município
+  # não administra volta com E0312. A jornada usa o primeiro da lista nacional (Anexo B v1.01,
+  # sem os serviços que exigem obra, evento ou não incidência) que tem alíquota no município.
+  @external_resource "test/restricted/servicos_nacionais.txt"
+  @services "test/restricted/servicos_nacionais.txt" |> File.read!() |> String.split()
 
   setup_all do
-    RestrictedEnvironment.fetch!()
+    context = RestrictedEnvironment.fetch!()
+    Map.put(context, :c_trib_nac, administered_service!(context))
+  end
+
+  defp administered_service!(%{client: client, c_loc_emi: c_loc_emi}) do
+    Enum.find(@services, fn c_trib_nac ->
+      match?({:ok, _rate}, Nfse.rate(client, c_loc_emi, c_trib_nac <> "000", brasilia_today()))
+    end) ||
+      raise "O município #{c_loc_emi} não administra nenhum dos #{length(@services)} serviços " <>
+              "da lista nacional na produção restrita"
   end
 
   test "issues, confirms, fetches, cancels and distributes an invoice on the restricted environment",
-       %{client: client, c_loc_emi: c_loc_emi} = context do
-    assert {:ok, _rate} = Nfse.rate(client, c_loc_emi, @c_trib_nac <> "000", brasilia_today())
+       %{client: client} = context do
     assert {:ok, issued} = Nfse.issue(client, dps(context, "Ana Souza", 0))
 
     cancelling_afterwards(client, issued.access_key, fn ->
@@ -115,8 +125,13 @@ defmodule Nfse.Restricted.JourneyTest do
   end
 
   defp dps(context, taker_name, offset) do
-    %{client: client, c_loc_emi: c_loc_emi, taker_cpf: taker_cpf, provider_im: provider_im} =
-      context
+    %{
+      client: client,
+      c_loc_emi: c_loc_emi,
+      taker_cpf: taker_cpf,
+      provider_im: provider_im,
+      c_trib_nac: c_trib_nac
+    } = context
 
     %Nfse.DPS{
       dh_emi: DateTime.add(DateTime.utc_now(), -60),
@@ -135,8 +150,8 @@ defmodule Nfse.Restricted.JourneyTest do
       serv: %{
         loc_prest: %{c_loc_prestacao: c_loc_emi},
         c_serv: %{
-          c_trib_nac: @c_trib_nac,
-          x_desc_serv: "Desenvolvimento de programa de computador"
+          c_trib_nac: c_trib_nac,
+          x_desc_serv: "Serviço de teste da biblioteca nfse"
         }
       },
       valores: %{
