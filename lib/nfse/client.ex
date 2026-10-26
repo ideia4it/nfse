@@ -34,12 +34,8 @@ defmodule Nfse.Client do
   precisa iniciar o próprio Finch com o certificado em `conn_opts: [transport_opts: [cert: ..., key: ...]]`,
   senão o mTLS não acontece.
 
-  ## O que não está confirmado
-
-    * a cadeia do certificado no handshake: `Nfse.Certificate` lê a cadeia do `.pfx`, mas o TLS
-      envia só a folha. Se a Sefin recusar o handshake pedindo a cadeia, enviar
-      `cert: [folha | cadeia]` em `transport_opts`; até a biblioteca fazer isso, quem precisar
-      inicia o próprio Finch assim, como em "Opções do Req"
+  O TLS envia só a folha do certificado, sem a cadeia, e a produção restrita aceitou o handshake
+  assim em 26/10/2026.
   """
 
   alias Nfse.Certificate

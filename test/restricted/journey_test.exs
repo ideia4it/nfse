@@ -2,7 +2,7 @@ defmodule Nfse.Restricted.JourneyTest do
   use ExUnit.Case, async: false
 
   @moduletag :restricted
-  @moduletag timeout: 300_000
+  @moduletag timeout: 600_000
 
   alias Nfse.{Error, Identifiers, RestrictedEnvironment}
 
@@ -36,15 +36,16 @@ defmodule Nfse.Restricted.JourneyTest do
       assert {:ok, event} = Nfse.fetch_event(client, issued.access_key, "101101", 1)
       assert event.access_key == issued.access_key
 
-      distributed =
-        client
-        |> Nfse.stream_distribution(0)
-        |> Enum.find(&(&1.access_key == issued.access_key))
+      assert eventually(fn ->
+               client
+               |> Nfse.stream_distribution(0)
+               |> Enum.find(&(&1.access_key == issued.access_key))
+             end)
 
-      assert distributed != nil
-
-      assert {:ok, events} = Nfse.events(client, issued.access_key)
-      assert Enum.any?(events, &(&1.event_type == "CANCELAMENTO"))
+      assert eventually(fn ->
+               {:ok, events} = Nfse.events(client, issued.access_key)
+               Enum.find(events, &(&1.event_type == "CANCELAMENTO"))
+             end)
     end)
   end
 
@@ -94,6 +95,18 @@ defmodule Nfse.Restricted.JourneyTest do
         IO.puts(
           "NOTA SEM CANCELAR: cancele à mão a chave #{access_key} (#{Exception.message(error)})"
         )
+    end
+  end
+
+  # O ADN recebe a nota e o cancelamento da Sefin de forma assíncrona: logo depois do cancelamento,
+  # a distribuição e os eventos da chave ainda voltam vazios.
+  defp eventually(find, attempts \\ 12)
+  defp eventually(find, 1), do: find.()
+
+  defp eventually(find, attempts) do
+    with nil <- find.() do
+      Process.sleep(10_000)
+      eventually(find, attempts - 1)
     end
   end
 
